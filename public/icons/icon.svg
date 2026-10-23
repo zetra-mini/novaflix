@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1c1c"/>
+      <stop offset="100%" stop-color="#0a0a0a"/>
+    </linearGradient>
+    <linearGradient id="redGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#B81D24"/>
+      <stop offset="100%" stop-color="#E50914"/>
+    </linearGradient>
+    <linearGradient id="redGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E50914"/>
+      <stop offset="100%" stop-color="#831010"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="12" flood-color="#E50914" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Background Card -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
+  <rect width="504" height="504" x="4" y="4" rx="108" fill="none" stroke="#E50914" stroke-width="4" stroke-opacity="0.4"/>
+
+  <!-- Stylized NovaFlix 'N' & Play Geometry -->
+  <g filter="url(#glow)">
+    <!-- Left vertical bar -->
+    <path d="M 148 112 L 208 112 L 208 400 L 148 400 Z" fill="url(#redGrad1)"/>
+    <!-- Right vertical bar -->
+    <path d="M 304 112 L 364 112 L 364 400 L 304 400 Z" fill="url(#redGrad1)"/>
+    <!-- Diagonal banner connecting -->
+    <path d="M 148 112 L 208 112 L 364 380 L 304 400 Z" fill="url(#redGrad2)"/>
+    <!-- Triangle Play Indicator inside -->
+    <polygon points="230,220 230,292 294,256" fill="#ffffff" opacity="0.95"/>
+  </g>
+</svg>

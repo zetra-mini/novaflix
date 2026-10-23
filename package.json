@@ -1,0 +1,70 @@
+{
+  "name": "novaflix-streaming-web",
+  "version": "2.0.5",
+  "description": "NovaFlix Streaming v2.0.5 - Plataforma VOD Otimizada (Filmes, Séries & +18) com Autoplay Instantâneo, Controle Remoto ADM e Deploy Automático VPS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "electron:start": "electron electron/main.js",
+    "build:win": "electron-builder --win --x64 -c.extraMetadata.main=electron/main.js",
+    "build:android": "npx cap sync android"
+  },
+  "build": {
+    "appId": "com.novaflix.streaming",
+    "productName": "NovaFlix",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "public/icons/icon-512.png"
+    },
+    "files": [
+      "server.js",
+      "admin-manager.js",
+      "playlist-manager.js",
+      "epg-manager.js",
+      "controllers/**/*",
+      "routes/**/*",
+      "services/**/*",
+      "data/**/*",
+      "!data/playlist.m3u",
+      "!data/catalog_cache.json",
+      "public/**/*",
+      "electron/**/*",
+      "!android/**/*",
+      "!dist-electron/**/*"
+    ]
+  },
+  "engines": {
+    "node": ">=18.x"
+  },
+  "keywords": [
+    "novaflix",
+    "iptv",
+    "streaming",
+    "player",
+    "m3u",
+    "failover",
+    "admin-panel"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.6.0",
+    "sqlite3": "^6.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "electron": "^44.9.1",
+    "electron-builder": "^26.15.3"
+  }
+}

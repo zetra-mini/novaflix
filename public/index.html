@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NovaFlix - Streaming Ilimitado</title>
+  <link rel="icon" href="icons/icon.svg">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#E50914">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NovaFlix">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            netflix: {
+              red: '#E50914',
+              hoverRed: '#b80710',
+              dark: '#141414',
+              black: '#000000',
+              card: '#181818',
+              gray: '#808080'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Hls.js (Local com Fallback CDN) -->
+  <script src="vendor/hls.min.js"></script>
+  <script>if (!window.Hls) document.write('<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"><\/script>');</script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css?v=4">
+</head>
+<body class="bg-netflix-dark text-white font-sans antialiased selection:bg-netflix-red selection:text-white">
+
+  <!-- ==============================================================================
+       NOVAFLIX PRELOADER / TELA DE CARREGAMENTO INICIAL
+       ============================================================================== -->
+  <div id="netflix-preloader" class="fixed inset-0 bg-[#141414] z-[9999] flex flex-col items-center justify-center select-none transition-opacity duration-700">
+    <div class="flex flex-col items-center max-w-sm w-full px-6 text-center space-y-6 animate-fade-in">
+      
+      <!-- NovaFlix Animated Brand (Logo & Subtítulo) -->
+      <div class="relative">
+        <h1 class="text-netflix-red font-black text-5xl md:text-6xl tracking-tighter uppercase drop-shadow-[0_0_35px_rgba(229,9,20,0.65)] animate-pulse font-sans">
+          NOVA<span class="text-white">FLIX</span>
+        </h1>
+        <div class="text-[10px] font-bold tracking-[0.3em] uppercase text-slate-400 mt-1">Streaming Ilimitado</div>
+        <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-20 h-1 bg-netflix-red rounded-full blur-sm"></div>
+      </div>
+
+      <!-- Bolinha de Loading (Spinner) -->
+      <div class="relative w-12 h-12">
+        <div class="w-12 h-12 rounded-full border-4 border-slate-800 border-t-netflix-red animate-spin"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==============================================================================
+       NOVAFLIX TOP NAVIGATION BAR
+       ============================================================================== -->
+  <header id="netflix-header" class="netflix-navbar fixed top-0 left-0 right-0 z-40 px-4 md:px-12 py-4 flex items-center justify-between">
+    <!-- Left Navigation -->
+    <div class="flex items-center gap-6 lg:gap-10">
+      <!-- NovaFlix Brand Logo -->
+      <a href="#" onclick="App.reloadHomeFast(); return false;" class="text-netflix-red font-black text-2xl lg:text-3xl tracking-tighter uppercase drop-shadow flex items-center select-none font-sans" title="Recarregar Início">
+        NOVA<span class="text-white">FLIX</span>
+      </a>
+
+      <!-- Navigation Links -->
+      <nav id="desktop-nav-links" class="hidden md:flex items-center gap-5 text-sm font-medium text-slate-300">
+        <button onclick="App.filterView('ALL')" id="nav-all" class="text-white font-semibold transition hover:text-slate-200">Início</button>
+        <button onclick="App.filterView('MOVIES')" id="nav-movies" class="hover:text-slate-200 transition">Filmes</button>
+        <button onclick="App.filterView('SERIES')" id="nav-series" class="hover:text-slate-200 transition">Séries</button>
+        <button onclick="App.filterView('ADULT')" id="nav-adult" class="hidden hover:text-rose-300 transition text-rose-400 font-semibold flex items-center gap-1">
+          <span>🔞 Adultos (+18)</span>
+        </button>
+        <button onclick="App.filterView('FAVORITES')" id="nav-favorites" class="hover:text-slate-200 transition">Minha Lista</button>
+        <button onclick="App.openFullCategoryView('all', '', 'Grade Completa de Títulos')" id="nav-grid" class="hover:text-slate-200 transition flex items-center gap-1.5 text-netflix-red font-semibold">
+          <i class="fa-solid fa-table-cells text-xs"></i> <span>Ver Tudo</span>
+        </button>
+      </nav>
+    </div>
+
+      <!-- Search Bar & Controls -->
+      <div class="relative flex items-center gap-2 sm:gap-3">
+        <!-- Lupinha Minimalista no Mobile (< sm) -->
+        <button id="mobile-search-btn" onclick="App.toggleMobileSearch()" class="sm:hidden w-8 h-8 rounded-full bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer" title="Pesquisar">
+          <i class="fa-solid fa-magnifying-glass text-xs"></i>
+        </button>
+
+        <!-- Barra de Busca Desktop (sm+) -->
+        <div id="search-box" class="hidden sm:flex items-center bg-black/80 border border-slate-600 rounded-full px-3 py-1.5 text-xs transition-all w-36 sm:w-48 focus-within:w-56 sm:focus-within:w-64 focus-within:border-white">
+          <i class="fa-solid fa-magnifying-glass text-slate-400 mr-2 text-xs"></i>
+          <input type="text" id="global-search" placeholder="Buscar filmes e séries..." oninput="App.onSearch(this.value)" class="bg-transparent border-none text-white focus:outline-none w-full text-xs">
+          <button id="search-clear-btn" onclick="App.clearSearch()" class="hidden text-slate-400 hover:text-white ml-1 p-0.5 cursor-pointer shrink-0" title="Limpar busca">
+            <i class="fa-solid fa-xmark text-xs"></i>
+          </button>
+        </div>
+
+        <!-- Overlay de Busca Mobile Elegante (aparece somente ao tocar na lupinha no celular) -->
+        <div id="mobile-search-overlay" class="hidden fixed inset-x-0 top-0 h-16 bg-[#141414]/98 backdrop-blur-md z-50 px-3 flex items-center gap-2 border-b border-slate-800 animate-fade-in sm:!hidden">
+          <div class="flex-1 flex items-center bg-black/90 border border-slate-700 rounded-full px-3.5 py-1.5 text-xs focus-within:border-netflix-red">
+            <i class="fa-solid fa-magnifying-glass text-netflix-red mr-2 text-xs"></i>
+            <input type="text" id="mobile-global-search" placeholder="Buscar filmes e séries..." oninput="App.onSearch(this.value)" class="bg-transparent border-none text-white focus:outline-none w-full text-xs">
+            <button type="button" onclick="App.clearSearch()" class="text-slate-400 hover:text-white p-0.5 ml-1">
+              <i class="fa-solid fa-xmark text-xs"></i>
+            </button>
+          </div>
+          <button type="button" onclick="App.closeMobileSearch()" class="text-xs font-bold text-slate-300 hover:text-white px-2 py-1">
+            Fechar
+          </button>
+        </div>
+
+        <!-- User Profile Button (Meu Perfil - Central Única de Configurações e Suporte) -->
+        <button onclick="App.openProfileModal()" id="nav-profile-btn" title="Meu Perfil" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/90 border border-slate-700 hover:border-netflix-red text-white transition shadow hover:scale-105 cursor-pointer shrink-0">
+          <span id="nav-profile-avatar" class="shrink-0"><i class="fa-solid fa-user text-xs"></i></span>
+          <span id="nav-profile-name" class="text-xs font-semibold max-w-[80px] sm:max-w-[130px] truncate">Perfil</span>
+        </button>
+      </div>
+  </header>
+
+  <!-- ==============================================================================
+       MAIN CONTENT CONTAINER
+       ============================================================================== -->
+  <main class="min-h-screen pb-24 sm:pb-16">
+
+    <!-- 1. NETFLIX BILLBOARD (CARROSSEL ROTATIVO TOP 10 EM ALTA) -->
+    <section id="billboard" class="billboard-container relative flex flex-col justify-end group/hero pb-20 sm:pb-24 md:pb-28" onmouseenter="App.pauseHeroRotation()" onmouseleave="App.resumeHeroRotation()">
+      <div class="billboard-vignette"></div>
+
+      <!-- Carousel Navigation Arrows (Desktop / Tablet) -->
+      <button onclick="App.prevHeroSlide()" title="Título Anterior" class="hidden sm:flex absolute left-2 sm:left-4 md:left-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black/50 hover:bg-black/90 text-white/80 hover:text-white border border-white/10 hover:border-white/40 items-center justify-center transition z-20 cursor-pointer shadow-2xl opacity-75 sm:opacity-0 group-hover/hero:opacity-100 hover:scale-110 active:scale-95">
+        <i class="fa-solid fa-chevron-left text-base sm:text-lg"></i>
+      </button>
+
+      <button onclick="App.nextHeroSlide()" title="Próximo Título" class="hidden sm:flex absolute right-2 sm:right-4 md:right-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black/50 hover:bg-black/90 text-white/80 hover:text-white border border-white/10 hover:border-white/40 items-center justify-center transition z-20 cursor-pointer shadow-2xl opacity-75 sm:opacity-0 group-hover/hero:opacity-100 hover:scale-110 active:scale-95">
+        <i class="fa-solid fa-chevron-right text-base sm:text-lg"></i>
+      </button>
+
+      <!-- Hero Details -->
+      <div id="hero-details-content" class="relative z-10 px-4 md:px-12 max-w-2xl space-y-2.5 sm:space-y-3 pb-2 sm:pb-0 transition-opacity duration-300">
+        
+        <!-- Top 10 Rank Badge -->
+        <div class="inline-flex items-center gap-2 text-xs font-bold tracking-widest uppercase">
+          <span class="px-2 py-0.5 rounded bg-netflix-red text-white text-[10px] font-black shadow-md tracking-wider">TOP 10</span>
+          <span id="hero-badge" class="text-white font-black text-xs sm:text-sm drop-shadow tracking-wide">#1 EM ALTA HOJE NO BRASIL</span>
+        </div>
+
+        <!-- Big Title -->
+        <h1 id="hero-title" class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white drop-shadow-lg leading-tight transition-all duration-300 line-clamp-2 md:line-clamp-3">
+          Carregando Título...
+        </h1>
+
+        <!-- Metadata row -->
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-semibold text-slate-300">
+          <span id="hero-match" class="text-emerald-400 font-bold">98% Relevante</span>
+          <span id="hero-rating" class="text-amber-400 font-bold">★ 8.9</span>
+          <span id="hero-year">2026</span>
+          <span id="hero-rating-badge" class="px-1.5 py-0.5 border rounded text-[10px] font-black text-white bg-[#00A859] border-[#008c4a]">L</span>
+          <span id="hero-type" class="border border-slate-600 px-1.5 py-0.5 rounded text-[10px]">4K ULTRA HD</span>
+          <span id="hero-group" class="text-slate-400">Geral</span>
+        </div>
+
+        <!-- Synopsis / Description -->
+        <p id="hero-overview" class="text-xs sm:text-sm text-slate-300 line-clamp-2 leading-relaxed drop-shadow transition-all duration-300 max-w-xl">
+          Aproveite a melhor programação de filmes em alta definição, séries originais completas e canais ao vivo com a experiência de navegação premium da NovaFlix.
+        </p>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2.5 sm:gap-3 pt-1 sm:pt-2">
+          <button id="hero-play-btn" onclick="App.playHeroItem()" class="px-4 py-2 sm:px-6 sm:py-2.5 rounded bg-white hover:bg-slate-200 text-black font-bold text-xs sm:text-sm md:text-base flex items-center gap-2 transition shadow-lg hover:scale-105 active:scale-95 cursor-pointer">
+            <i class="fa-solid fa-play text-xs sm:text-base"></i> <span>Assistir</span>
+          </button>
+
+          <button id="hero-info-btn" onclick="App.openHeroModal()" class="px-3.5 py-2 sm:px-5 sm:py-2.5 rounded bg-slate-600/70 hover:bg-slate-600/90 text-white font-bold text-xs sm:text-sm md:text-base flex items-center gap-2 transition backdrop-blur hover:scale-105 active:scale-95 cursor-pointer">
+            <i class="fa-solid fa-circle-info text-xs sm:text-base"></i> <span>Mais Informações</span>
+          </button>
+
+          <button id="hero-fav-btn" onclick="App.toggleHeroFavorite()" title="Minha Lista" class="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-black/60 hover:bg-black/80 border border-slate-500 text-white flex items-center justify-center transition backdrop-blur hover:scale-105 active:scale-95 cursor-pointer shrink-0">
+            <i id="hero-fav-icon" class="fa-solid fa-plus text-xs sm:text-base"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Top 10 Carousel Indicators (Limpo, sem sobreposição de textos nem contador numérico) -->
+      <div id="hero-carousel-indicator-box" class="absolute bottom-8 sm:bottom-12 md:bottom-16 right-4 sm:right-6 md:right-12 z-20 flex flex-col items-end gap-1 pointer-events-auto">
+        <span id="hero-carousel-counter" class="hidden"></span>
+        <div id="hero-carousel-indicators" class="flex items-center gap-1 sm:gap-1.5 md:gap-2">
+          <!-- 10 interactive indicator pills -->
+        </div>
+      </div>
+    </section>
+
+    <!-- SEARCH RESULTS VIEW (When searching) -->
+    <section id="search-results-section" class="hidden px-3 sm:px-6 md:px-12 pt-20 sm:pt-24 md:pt-28 pb-32">
+      <h2 class="text-xl md:text-2xl font-bold mb-6 flex items-center gap-2">
+        <span>Resultados para:</span>
+        <span id="search-query-display" class="text-netflix-red font-semibold italic">""</span>
+      </h2>
+      <div id="search-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        <!-- Search cards dynamically rendered -->
+      </div>
+    </section>
+
+    <!-- 2. NETFLIX HORIZONTAL CAROUSELS / ROWS CONTAINER -->
+    <div id="catalog-rows" class="mt-2 sm:-mt-6 md:-mt-10 relative z-20 space-y-5 sm:space-y-6 pb-28 md:pb-12">
+      <!-- Dynamically generated category rows (Em Alta, Ao Vivo, Filmes, Séries) -->
+    </div>
+
+    <!-- ==============================================================================
+         3. FULL CATALOG SECTION ("VER TUDO" / GRADE E LISTA COMPLETA)
+         ============================================================================== -->
+    <section id="full-catalog-section" class="hidden px-4 md:px-12 pt-24 pb-28 md:pb-12 min-h-screen">
+      <!-- Top Bar -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div class="space-y-1">
+          <div class="flex items-center gap-3">
+            <button onclick="App.closeFullCategoryView()" title="Voltar" class="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition">
+              <i class="fa-solid fa-arrow-left"></i>
+            </button>
+            <h2 id="full-catalog-title" class="text-2xl md:text-3xl font-black text-white">Todos os Títulos</h2>
+          </div>
+          <p id="full-catalog-subtitle" class="text-xs text-slate-400">Carregando catálogo completo...</p>
+        </div>
+
+        <!-- Controls: Search within category, Filter by Group, Layout toggle -->
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Search Input -->
+          <div class="flex items-center bg-black/60 border border-slate-700 rounded-lg px-3 py-1.5 text-xs w-48 sm:w-56 focus-within:border-white">
+            <i class="fa-solid fa-magnifying-glass text-slate-400 mr-2 text-xs"></i>
+            <input type="text" id="full-catalog-search" placeholder="Filtrar por nome..." oninput="App.onFullCatalogSearch(this.value)" class="bg-transparent border-none text-white focus:outline-none w-full text-xs">
+          </div>
+
+          <!-- Group / Genre Select -->
+          <select id="full-catalog-group-select" onchange="App.onFullCatalogGroupChange(this.value)" class="bg-[#1e1e1e] border border-slate-700 text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-netflix-red max-w-[200px] truncate cursor-pointer">
+            <option value="">Todos os Gêneros</option>
+          </select>
+
+          <!-- Layout Toggle (Grid vs List) -->
+          <div class="flex items-center border border-slate-700 rounded-lg overflow-hidden bg-black/40">
+            <button id="view-mode-grid" onclick="App.setViewMode('grid')" class="px-3 py-1.5 text-xs bg-netflix-red text-white transition flex items-center gap-1.5 font-bold">
+              <i class="fa-solid fa-border-all"></i> <span class="hidden sm:inline">Grade</span>
+            </button>
+            <button id="view-mode-list" onclick="App.setViewMode('list')" class="px-3 py-1.5 text-xs text-slate-400 hover:text-white transition flex items-center gap-1.5">
+              <i class="fa-solid fa-list"></i> <span class="hidden sm:inline">Lista</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Category Type Pills -->
+      <div id="full-catalog-type-pills" class="flex flex-wrap items-center gap-2 pt-3 pb-2 border-b border-slate-800/60">
+        <button onclick="App.switchFullCatalogType('all')" id="fc-pill-all" class="px-3.5 py-1.5 rounded-full text-xs font-bold bg-netflix-red text-white transition shadow cursor-pointer">Todos</button>
+        <button onclick="App.switchFullCatalogType('movies')" id="fc-pill-movies" class="px-3.5 py-1.5 rounded-full text-xs font-bold bg-white/10 text-slate-300 hover:text-white transition cursor-pointer">Filmes</button>
+        <button onclick="App.switchFullCatalogType('series')" id="fc-pill-series" class="px-3.5 py-1.5 rounded-full text-xs font-bold bg-white/10 text-slate-300 hover:text-white transition cursor-pointer">Séries</button>
+        <button onclick="App.switchFullCatalogType('adult')" id="fc-pill-adult" class="hidden px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-500/40 transition cursor-pointer flex items-center gap-1.5">
+          <span>🔞 Todos +18</span>
+        </button>
+        <button onclick="App.switchFullCatalogType('adult_movies')" id="fc-pill-adult_movies" class="hidden px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-500/40 transition cursor-pointer flex items-center gap-1.5">
+          <span>🔞 Filmes +18</span>
+        </button>
+        <button onclick="App.switchFullCatalogType('adult_series')" id="fc-pill-adult_series" class="hidden px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-500/40 transition cursor-pointer flex items-center gap-1.5">
+          <span>🔞 Séries +18</span>
+        </button>
+      </div>
+
+      <!-- Items Container: Grid Mode -->
+      <div id="full-catalog-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 py-6">
+        <!-- Dynamically populated cards -->
+      </div>
+
+      <!-- Items Container: List Mode -->
+      <div id="full-catalog-list" class="hidden space-y-2 py-6 max-w-5xl mx-auto">
+        <!-- Dynamically populated list rows -->
+      </div>
+
+      <!-- Pagination / Load More -->
+      <div id="full-catalog-pagination" class="py-10 flex flex-col items-center justify-center gap-3">
+        <button id="full-catalog-load-more" onclick="App.loadMoreCategoryItems()" class="px-8 py-3 rounded-lg bg-netflix-red hover:bg-netflix-hoverRed text-white font-bold text-xs uppercase tracking-wider transition shadow-lg flex items-center gap-2">
+          <i class="fa-solid fa-spinner animate-spin hidden" id="load-more-spinner"></i>
+          <span>Carregar Mais Títulos</span>
+        </button>
+        <span id="full-catalog-page-indicator" class="text-xs text-slate-500 font-mono"></span>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==============================================================================
+       NETFLIX FULLSCREEN VIDEO PLAYER SCREEN
+       ============================================================================== -->
+  <div id="netflix-player-screen" onclick="App.onPlayerScreenClick(event)" class="netflix-player-screen show-controls hidden fixed inset-0 bg-black z-[60] flex items-center justify-center overflow-hidden select-none">
+    <!-- Video Element (Padrão: Proporção Automática / 16:9 ajustada ao dispositivo) -->
+    <video id="netflix-video" class="w-full h-full object-contain" playsinline preload="auto"></video>
+
+
+    <!-- Floating Unmute Audio Notice (ativado caso o navegador inicie com áudio bloqueado) -->
+    <div id="player-unmute-prompt" onclick="App.unmuteVideo()" class="hidden absolute top-20 sm:top-24 left-1/2 -translate-x-1/2 bg-netflix-red/95 hover:bg-netflix-hoverRed text-white px-5 py-2.5 rounded-full shadow-2xl z-40 flex items-center gap-2.5 font-bold text-xs sm:text-sm cursor-pointer border border-white/20 animate-bounce transition transform hover:scale-105">
+      <i class="fa-solid fa-volume-xmark text-sm sm:text-base"></i>
+      <span>Áudio silenciado pelo navegador. Clique para ativar o som</span>
+    </div>
+
+    <!-- Center Play/Pause Animated Indicator -->
+    <div id="player-center-action" class="pointer-events-none absolute inset-0 flex items-center justify-center z-30 opacity-0 transition-all duration-300 transform scale-75">
+      <button type="button" id="player-center-circle-btn" onclick="event.stopPropagation(); App.resumePlaybackFromCenter(event)" class="w-20 h-20 md:w-24 md:h-24 rounded-full bg-black/75 hover:bg-black active:scale-95 backdrop-blur-md border border-white/30 hover:border-white/60 flex items-center justify-center text-white text-3xl md:text-4xl shadow-2xl transition transform hover:scale-110 cursor-pointer pointer-events-auto focus:outline-none" title="Reproduzir">
+        <i id="player-center-icon" class="fa-solid fa-play pl-1"></i>
+      </button>
+    </div>
+
+    <!-- Loading Spinner Overlay -->
+    <div id="netflix-player-loader" class="hidden absolute inset-0 bg-black/75 flex flex-col items-center justify-center z-30">
+      <div class="w-14 h-14 border-4 border-netflix-red/30 border-t-netflix-red rounded-full animate-spin mb-3"></div>
+      <p id="player-loading-text" class="text-xs text-slate-300 font-semibold tracking-wider uppercase">Iniciando reprodução...</p>
+    </div>
+
+    <!-- Error Screen Overlay -->
+    <div id="netflix-player-error" class="hidden absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 text-center z-30">
+      <div class="w-16 h-16 rounded-full bg-netflix-red/20 text-netflix-red flex items-center justify-center text-3xl mb-4">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 class="text-xl font-bold text-white mb-2">Não foi possível reproduzir este título</h3>
+      <p id="netflix-player-error-msg" class="text-sm text-slate-400 max-w-md mb-6">O conteúdo solicitado está temporariamente indisponível. Tente novamente mais tarde.</p>
+      <div class="flex items-center gap-4">
+        <button onclick="App.retryCurrentStream()" class="px-6 py-2.5 rounded bg-netflix-red hover:bg-netflix-hoverRed text-white font-bold text-xs uppercase tracking-wider transition">
+          <i class="fa-solid fa-rotate-right mr-1.5"></i> Tentar Novamente
+        </button>
+        <button onclick="App.closePlayer()" class="px-5 py-2.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition">
+          Voltar ao Catálogo
+        </button>
+      </div>
+    </div>
+
+    <!-- POST-PLAY RECOMMENDATION SCREEN (AO TERMINAR DE ASSISTIR) -->
+    <div id="player-postplay-screen" class="hidden absolute inset-0 bg-black/90 backdrop-blur-md z-40 flex flex-col items-center justify-center p-4 sm:p-6 text-center animate-fade-in">
+      <div class="max-w-md w-full bg-[#181818] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+          <span class="flex items-center gap-1.5 text-netflix-red font-bold uppercase tracking-wider">
+            <i class="fa-solid fa-sparkles"></i> Recomendado a Seguir
+          </span>
+          <span id="postplay-timer-badge" class="px-2.5 py-1 rounded-full bg-netflix-red/20 border border-netflix-red/40 font-mono text-[11px] text-white font-bold">Iniciando em 5s</span>
+        </div>
+
+        <div id="postplay-card-banner" class="relative aspect-video rounded-xl overflow-hidden bg-cover bg-center shadow-lg border border-slate-700/60 flex items-end p-4">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent"></div>
+          <div class="relative z-10 text-left space-y-1">
+            <span id="postplay-match" class="text-[11px] font-bold text-emerald-400">98% Relevante</span>
+            <h4 id="postplay-title" class="text-base sm:text-lg font-black text-white leading-tight drop-shadow truncate">Próximo Título</h4>
+            <p id="postplay-desc" class="text-[11px] text-slate-300 line-clamp-2 leading-relaxed drop-shadow">Aproveite a próxima recomendação baseada no seu gosto.</p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-center gap-2.5 pt-1">
+          <button id="postplay-watch-now" onclick="App.playPostPlayItem()" class="flex-1 py-2.5 rounded-lg bg-netflix-red hover:bg-netflix-hoverRed text-white font-bold text-xs uppercase tracking-wider transition shadow-lg flex items-center justify-center gap-2 cursor-pointer">
+            <i class="fa-solid fa-play"></i> <span>Assistir Agora</span>
+          </button>
+          <button onclick="App.replayCurrentVideo()" title="Repetir este título" class="px-3.5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition cursor-pointer">
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
+          <button onclick="App.cancelPostPlay()" class="px-3.5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition cursor-pointer">
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CADEADO CENTRAL BLOQUEIO DE TELA (ÚNICO E CENTRALIZADO ESTILO NETFLIX) -->
+    <div id="player-lock-badge" onclick="event.stopPropagation(); App.unlockPlayerScreen()" class="hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 flex flex-col items-center justify-center gap-2 p-5 rounded-2xl bg-black/90 backdrop-blur-md border border-netflix-red/70 text-white shadow-2xl cursor-pointer animate-fade-in select-none">
+      <div class="w-14 h-14 rounded-full bg-netflix-red/20 text-netflix-red flex items-center justify-center text-2xl border border-netflix-red/40 animate-pulse">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <span class="text-xs font-bold tracking-wide">Tela Bloqueada</span>
+      <span class="text-[10px] text-slate-400">Toque no cadeado para destravar</span>
+    </div>
+
+    <!-- Double-Tap Seek Ripples (Áreas de Avançar/Retroceder 10s no Touch Mobile) -->
+    <div id="player-seek-ripple-left" class="pointer-events-none opacity-0 absolute left-6 sm:left-14 top-1/2 -translate-y-1/2 z-35 flex flex-col items-center justify-center gap-1 transition-opacity duration-300">
+      <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/75 border border-white/20 text-white flex items-center justify-center text-xl shadow-2xl">
+        <i class="fa-solid fa-rotate-left"></i>
+      </div>
+      <span class="text-xs font-bold text-white font-mono bg-black/60 px-2 py-0.5 rounded-full">-10s</span>
+    </div>
+    <div id="player-seek-ripple-right" class="pointer-events-none opacity-0 absolute right-6 sm:right-14 top-1/2 -translate-y-1/2 z-35 flex flex-col items-center justify-center gap-1 transition-opacity duration-300">
+      <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/75 border border-white/20 text-white flex items-center justify-center text-xl shadow-2xl">
+        <i class="fa-solid fa-rotate-right"></i>
+      </div>
+      <span class="text-xs font-bold text-white font-mono bg-black/60 px-2 py-0.5 rounded-full">+10s</span>
+    </div>
+
+    <!-- TOP CONTROLS BAR (ESTILO NETFLIX / YOUTUBE LIMPO - SEM BOTÕES SOLTOS) -->
+    <div class="netflix-player-controls absolute top-0 left-0 right-0 p-3 sm:p-4 md:p-6 bg-gradient-to-b from-black/95 via-black/60 to-transparent flex items-center justify-between z-20">
+      <div class="flex items-center gap-2.5 sm:gap-4 max-w-[65%] sm:max-w-[75%]">
+        <!-- Back Arrow Button -->
+        <button onclick="App.closePlayer()" title="Voltar ao Catálogo" class="text-white hover:text-netflix-red text-lg sm:text-xl md:text-2xl transition p-1.5 cursor-pointer flex items-center gap-1.5 group">
+          <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+          <span class="text-xs font-bold uppercase tracking-wider hidden sm:inline">Voltar</span>
+        </button>
+        <div class="truncate">
+          <h2 id="player-title" class="font-black text-xs sm:text-base md:text-xl text-white drop-shadow truncate">Título</h2>
+          <p id="player-subtitle" class="text-[10px] sm:text-xs text-slate-300 drop-shadow truncate font-medium">Categoria</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 md:gap-3">
+        <!-- Star Favorite Button (Preservado na interface desbloqueada) -->
+        <button onclick="App.togglePlayerFavorite()" id="player-fav-btn" title="Adicionar à Minha Lista" class="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-black/60 hover:bg-black/80 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer">
+          <i class="fa-regular fa-star text-xs sm:text-sm md:text-base"></i>
+        </button>
+        <!-- Lock Button (Cadeado Aberto para Bloquear Tela) -->
+        <button id="player-lock-btn" onclick="event.stopPropagation(); App.lockPlayerScreen()" title="Bloquear Tela" class="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-black/60 hover:bg-black/80 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer">
+          <i id="player-lock-icon" class="fa-solid fa-lock-open text-xs sm:text-sm"></i>
+        </button>
+        <!-- Single Settings Gear (Estilo YouTube - Todas as Configurações de Tela, Áudio, Legendas e Velocidade) -->
+        <button onclick="App.openMobilePlayerSettings()" id="player-settings-btn" title="Configurações (Ajuste de Tela, Áudio, Legendas, Velocidade)" class="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-black/60 hover:bg-black/80 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer">
+          <i class="fa-solid fa-gear text-xs sm:text-sm md:text-base"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- BOTTOM CONTROLS BAR (ESTILO NETFLIX / YOUTUBE - CONTEXT-SENSITIVE) -->
+    <div class="netflix-player-controls absolute bottom-0 left-0 right-0 p-3 sm:p-4 md:p-6 bg-gradient-to-t from-black/95 via-black/70 to-transparent space-y-1.5 sm:space-y-2 md:space-y-3 z-20">
+      
+      <!-- Timeline Scrubber / Progress Bar (for VOD) -->
+      <div id="player-timeline-container" class="relative flex items-center gap-2 sm:gap-3">
+        <div id="player-live-badge" class="hidden items-center gap-1.5 sm:gap-2 px-2.5 py-1 rounded bg-netflix-red text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
+          <span class="w-2 h-2 rounded-full bg-white animate-ping"></span> AO VIVO
+        </div>
+        <div id="vod-timeline" class="flex-1 relative flex items-center gap-2 sm:gap-3 text-xs font-mono text-slate-300">
+          <span id="current-time-text" class="text-[11px] sm:text-xs min-w-[36px]">00:00</span>
+          <div class="relative flex-1 flex items-center">
+            <input type="range" id="seek-bar" value="0" min="0" max="100" class="netflix-slider flex-1 h-1 sm:h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+            <div id="player-seek-hover-tooltip" class="pointer-events-none hidden absolute -top-8 bg-black/90 text-white px-2 py-0.5 rounded text-[11px] font-mono border border-slate-700 shadow-lg -translate-x-1/2 z-30">00:00</div>
+          </div>
+          <span id="duration-time-text" class="text-[11px] sm:text-xs min-w-[36px]">00:00</span>
+        </div>
+      </div>
+
+      <!-- Controls Row -->
+      <div class="flex items-center justify-between pt-1 gap-1.5 sm:gap-3 flex-nowrap">
+        <!-- Left: Play, Skip 10s, Volume (Desktop Only) -->
+        <div class="flex items-center gap-1.5 sm:gap-2.5 md:gap-3 shrink-0">
+          <!-- Play / Pause -->
+          <button onclick="App.togglePlayWithFeedback()" class="text-white hover:text-netflix-red text-lg sm:text-xl md:text-2xl transition cursor-pointer p-1" title="Play / Pausar">
+            <i id="player-play-icon" class="fa-solid fa-pause"></i>
+          </button>
+
+          <!-- Back 10s -->
+          <button onclick="App.seekRelative(-10)" title="Voltar 10 segundos" class="text-slate-300 hover:text-white text-xs sm:text-base md:text-lg transition cursor-pointer p-1">
+            <i class="fa-solid fa-rotate-left"></i>
+          </button>
+
+          <!-- Forward 10s -->
+          <button onclick="App.seekRelative(10)" title="Avançar 10 segundos" class="text-slate-300 hover:text-white text-xs sm:text-base md:text-lg transition cursor-pointer p-1">
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
+
+          <!-- Volume Controls (Desktop Only) -->
+          <div class="hidden md:flex items-center gap-1">
+            <button onclick="App.toggleMute()" title="Ativar/Desativar Som" class="text-slate-300 hover:text-white text-xs sm:text-base md:text-lg transition cursor-pointer p-1">
+              <i id="player-vol-icon" class="fa-solid fa-volume-high"></i>
+            </button>
+            <input type="range" id="player-vol-slider" min="0" max="1" step="0.05" value="1" oninput="App.setVolume(this.value)" class="netflix-slider w-16 sm:w-20 md:w-24 h-1 bg-slate-700 rounded cursor-pointer">
+          </div>
+        </div>
+
+        <!-- Center: Modais Inferiores Dinâmicos (Sensíveis ao Contexto) -->
+        <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <!-- Series: Episódios (Oculto em Filmes) -->
+          <button id="player-episodes-btn" onclick="App.togglePlayerEpisodesDrawer()" class="hidden px-2.5 sm:px-3 py-1.5 rounded-lg bg-netflix-red hover:bg-netflix-hoverRed text-[11px] text-white font-bold transition flex items-center gap-1.5 shadow-lg cursor-pointer">
+            <i class="fa-solid fa-list-ul text-xs"></i> <span>Episódios</span>
+          </button>
+
+          <!-- Series & Filmes: Sugestões (Oculto em Canais Ao Vivo) -->
+          <button id="player-suggest-btn" onclick="App.togglePlayerSuggestionsDrawer()" title="Sugestões e Títulos Semelhantes" class="hidden md:flex px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-[11px] text-slate-200 hover:text-white transition items-center gap-1.5 cursor-pointer">
+            <i class="fa-solid fa-sparkles text-netflix-red text-xs"></i> <span>Sugestões</span>
+          </button>
+
+          <!-- Próximo Episódio / Próximo Título -->
+          <button id="player-next-btn" onclick="App.onPlayerNextClick()" class="px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-[11px] text-slate-200 hover:text-white transition flex items-center gap-1.5 cursor-pointer">
+            <span id="player-next-label" class="hidden sm:inline">Próximo</span> <i class="fa-solid fa-forward-step text-[10px]"></i>
+          </button>
+        </div>
+
+        <!-- Right: Tela Cheia (Legendas & Áudio residem exclusivamente na engrenagem) -->
+        <div class="flex items-center gap-1 sm:gap-2 md:gap-3 shrink-0">
+          <!-- Fullscreen / Orientation Lock Toggle -->
+          <button onclick="App.togglePlayerOrientationOrFullscreen()" id="player-fullscreen-btn" title="Alternar Tela Cheia / Girar" class="text-slate-300 hover:text-white text-base sm:text-lg transition cursor-pointer p-1.5 shrink-0">
+            <i class="fa-solid fa-expand"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IN-PLAYER SUBTITLES, AUDIO & PLAYBACK SPEED MODAL -->
+    <div id="player-subtitles-modal" class="hidden absolute bottom-20 sm:bottom-24 right-2 sm:right-6 md:right-20 bg-[#161616]/95 backdrop-blur-md border border-slate-700 rounded-2xl p-4 sm:p-5 z-40 w-[calc(100vw-1rem)] max-w-sm sm:w-80 shadow-2xl animate-fade-in space-y-4 text-white">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h4 class="text-sm font-bold flex items-center gap-2">
+          <i class="fa-solid fa-closed-captioning text-netflix-red"></i>
+          <span>Áudio e Legendas</span>
+        </h4>
+        <button onclick="App.toggleSubtitlesModal()" class="text-slate-400 hover:text-white text-base cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Legendas Section -->
+      <div>
+        <h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Legendas</h5>
+        <div class="space-y-1 text-xs">
+          <label class="flex items-center gap-2.5 p-2 rounded hover:bg-slate-800 cursor-pointer">
+            <input type="radio" name="player-sub-opt" value="off" checked onchange="App.setSubtitleTrack('off')" class="accent-netflix-red">
+            <span>Desativada</span>
+          </label>
+          <label class="flex items-center gap-2.5 p-2 rounded hover:bg-slate-800 cursor-pointer">
+            <input type="radio" name="player-sub-opt" value="pt" onchange="App.setSubtitleTrack('pt')" class="accent-netflix-red">
+            <span>Português (Brasil) [CC]</span>
+          </label>
+          <label class="flex items-center gap-2.5 p-2 rounded hover:bg-slate-800 cursor-pointer">
+            <input type="radio" name="player-sub-opt" value="en" onchange="App.setSubtitleTrack('en')" class="accent-netflix-red">
+            <span>Inglês (Original)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Áudio Section -->
+      <div class="pt-2 border-t border-slate-800">
+        <div class="flex items-center justify-between mb-2">
+          <h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Áudio & Idioma</h5>
+        </div>
+        <div id="player-audio-options-list" class="space-y-1 text-xs">
+          <label class="flex items-center gap-2.5 p-2 rounded hover:bg-slate-800 cursor-pointer">
+            <input type="radio" name="player-audio-opt" value="default" checked class="accent-netflix-red">
+            <span>Áudio Principal (Estéreo com Diálogo Central)</span>
+          </label>
+        </div>
+        <!-- Realçar Falas / Diálogo Nítido -->
+        <div class="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between">
+          <div class="flex items-center gap-2 text-xs">
+            <i class="fa-solid fa-volume-high text-netflix-red text-sm"></i>
+            <div>
+              <div class="font-bold text-white text-xs">Realçar Falas e Vozes</div>
+              <div class="text-[10px] text-slate-400">Torna o diálogo claro sobre efeitos sonoros</div>
+            </div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="toggle-dialogue-boost" checked onchange="App.toggleDialogueBoost(this.checked)" class="sr-only peer">
+            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-netflix-red"></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Velocidade Section -->
+      <div class="pt-2 border-t border-slate-800">
+        <h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Velocidade de Reprodução</h5>
+        <div class="grid grid-cols-4 gap-1.5 text-center text-xs font-semibold">
+          <button onclick="App.setPlaybackSpeed(0.75, this)" class="py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700">0.75x</button>
+          <button onclick="App.setPlaybackSpeed(1.0, this)" class="py-1.5 rounded bg-netflix-red text-white border border-netflix-red">1.0x</button>
+          <button onclick="App.setPlaybackSpeed(1.25, this)" class="py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700">1.25x</button>
+          <button onclick="App.setPlaybackSpeed(1.5, this)" class="py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700">1.5x</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- YOUTUBE-STYLE IN-PLAYER SETTINGS BOTTOM SHEET / MODAL -->
+    <div id="player-mobile-settings-modal" class="hidden absolute inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in" onclick="if(event.target === this) App.closeMobilePlayerSettings()">
+      <div class="relative w-full max-w-md bg-[#161616] border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto animate-slide-up" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-full bg-netflix-red/15 text-netflix-red flex items-center justify-center text-sm font-bold">
+              <i class="fa-solid fa-gear"></i>
+            </span>
+            <div>
+              <h3 class="text-sm font-bold text-white">Configurações de Reprodução</h3>
+              <p class="text-[10px] text-slate-400">Ajuste de tela, áudio, legendas e velocidade</p>
+            </div>
+          </div>
+          <button onclick="App.closeMobilePlayerSettings()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition">
+            <i class="fa-solid fa-xmark text-sm"></i>
+          </button>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <!-- 1. Ajuste de Tela / Proporção -->
+          <div class="p-3.5 rounded-xl bg-[#1f1f1f] border border-slate-800/80 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-crop-simple text-netflix-red"></i> Ajuste de Tela (Proporção)
+              </span>
+              <span id="sheet-aspect-current" class="text-[11px] font-semibold text-slate-400 font-mono">Automático</span>
+            </div>
+            <div class="grid grid-cols-4 gap-1.5 pt-1 text-center font-semibold text-[11px]">
+              <button type="button" onclick="App.setAspectRatioFromSheet('contain')" id="aspect-opt-contain" class="py-2 px-1 rounded-lg bg-netflix-red text-white border border-netflix-red transition">Automático</button>
+              <button type="button" onclick="App.setAspectRatioFromSheet('cover')" id="aspect-opt-cover" class="py-2 px-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">Preencher</button>
+              <button type="button" onclick="App.setAspectRatioFromSheet('fill')" id="aspect-opt-fill" class="py-2 px-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">Esticar</button>
+              <button type="button" onclick="App.setAspectRatioFromSheet('original')" id="aspect-opt-original" class="py-2 px-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">16:9</button>
+            </div>
+            <span class="text-[10px] text-slate-400 block">Dica: "Preencher" remove barras pretas em celulares com tela esticada.</span>
+          </div>
+
+          <!-- 2. Velocidade de Reprodução -->
+          <div class="p-3.5 rounded-xl bg-[#1f1f1f] border border-slate-800/80 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-gauge-high text-sky-400"></i> Velocidade de Reprodução
+              </span>
+              <span id="sheet-speed-current" class="text-[11px] font-semibold text-slate-400 font-mono">1.0x</span>
+            </div>
+            <div class="grid grid-cols-5 gap-1.5 pt-1 text-center font-semibold text-[11px]">
+              <button type="button" onclick="App.setSpeedFromSheet(0.75)" id="speed-opt-075" class="py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">0.75x</button>
+              <button type="button" onclick="App.setSpeedFromSheet(1.0)" id="speed-opt-100" class="py-1.5 rounded-lg bg-netflix-red text-white border border-netflix-red">1.0x</button>
+              <button type="button" onclick="App.setSpeedFromSheet(1.25)" id="speed-opt-125" class="py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">1.25x</button>
+              <button type="button" onclick="App.setSpeedFromSheet(1.5)" id="speed-opt-150" class="py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">1.5x</button>
+              <button type="button" onclick="App.setSpeedFromSheet(2.0)" id="speed-opt-200" class="py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">2.0x</button>
+            </div>
+          </div>
+
+          <!-- 3. Legendas -->
+          <div class="p-3.5 rounded-xl bg-[#1f1f1f] border border-slate-800/80 space-y-2">
+            <span class="font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-closed-captioning text-amber-400"></i> Legendas
+            </span>
+            <div class="grid grid-cols-3 gap-1.5 pt-1 text-center font-semibold text-[11px]">
+              <button type="button" onclick="App.setSubtitleTrack('off'); App.updateSheetOptions();" id="sheet-sub-off" class="py-1.5 rounded-lg bg-netflix-red text-white border border-netflix-red">Desativada</button>
+              <button type="button" onclick="App.setSubtitleTrack('pt'); App.updateSheetOptions();" id="sheet-sub-pt" class="py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">Português</button>
+              <button type="button" onclick="App.setSubtitleTrack('en'); App.updateSheetOptions();" id="sheet-sub-en" class="py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">Inglês</button>
+            </div>
+          </div>
+
+          <!-- 4. Áudio & Vozes -->
+          <div class="p-3.5 rounded-xl bg-[#1f1f1f] border border-slate-800/80 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-headphones text-purple-400"></i> Faixa de Áudio & Vozes
+              </span>
+              <label class="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-300">
+                <input type="checkbox" id="sheet-dialogue-boost" checked onchange="App.toggleDialogueBoost(this.checked)" class="accent-netflix-red">
+                <span>Realçar Falas</span>
+              </label>
+            </div>
+            <div id="sheet-audio-tracks-container" class="grid grid-cols-2 gap-2 pt-1 text-center font-semibold text-[11px]">
+              <button type="button" onclick="App.setAudioTrack('original'); App.updateSheetOptions();" id="sheet-audio-original" class="py-1.5 rounded-lg bg-netflix-red text-white border border-netflix-red">Original</button>
+              <button type="button" onclick="App.setAudioTrack('dubbed'); App.updateSheetOptions();" id="sheet-audio-dubbed" class="py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">Dublado (PT-BR)</button>
+            </div>
+          </div>
+
+          <!-- 5. Ações Rápidas: Bloquear Tela & Modo Cinema -->
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <button type="button" onclick="App.lockPlayerScreen()" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer">
+              <i class="fa-solid fa-lock text-netflix-red text-sm"></i>
+              <span>Bloquear Tela</span>
+            </button>
+            <button type="button" onclick="App.toggleCinemaMode(); App.closeMobilePlayerSettings();" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer">
+              <i class="fa-solid fa-eye-slash text-slate-400 text-sm"></i>
+              <span>Ocultar Controles</span>
+            </button>
+          </div>
+
+          <!-- 6. Sugestões de Próximo Título -->
+          <button type="button" onclick="App.closeMobilePlayerSettings(); App.togglePlayerSuggestionsDrawer();" class="w-full p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer">
+            <i class="fa-solid fa-sparkles text-netflix-red"></i>
+            <span>Ver Títulos Semelhantes Recomendados</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IN-PLAYER SUGGESTIONS DRAWER (SUGESTÕES DE PRÓXIMO TÍTULO) -->
+    <div id="player-suggestions-drawer" class="hidden absolute top-0 right-0 bottom-0 w-full max-w-[340px] sm:max-w-sm bg-black/95 backdrop-blur-md border-l border-slate-800 z-30 p-4 sm:p-6 flex flex-col space-y-4 animate-fade-in">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-sparkles text-netflix-red"></i> <span>Títulos Recomendados</span>
+        </h3>
+        <button onclick="App.togglePlayerSuggestionsDrawer()" class="text-slate-400 hover:text-white text-base cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-400">Sugestões selecionadas para você com base no título atual:</p>
+      <div id="player-suggestions-list" class="flex-1 overflow-y-auto space-y-2 pr-1">
+        <!-- Dynamically populated recommendations -->
+      </div>
+    </div>
+
+    <!-- IN-PLAYER EPISODES DRAWER -->
+    <div id="player-episodes-drawer" class="hidden absolute top-0 right-0 bottom-0 w-full max-w-[340px] sm:max-w-sm bg-black/95 backdrop-blur-md border-l border-slate-800 z-30 p-4 sm:p-6 flex flex-col space-y-4 animate-fade-in">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-list-ul text-netflix-red"></i> <span id="player-drawer-series-name">Episódios</span>
+        </h3>
+        <button onclick="App.togglePlayerEpisodesDrawer()" class="text-slate-400 hover:text-white text-base cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div>
+        <select id="player-drawer-season-select" onchange="App.onPlayerDrawerSeasonChange(this.value)" class="w-full bg-[#1c1c1c] border border-slate-700 text-white rounded px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-netflix-red cursor-pointer">
+        </select>
+      </div>
+      <div id="player-drawer-episodes-list" class="flex-1 overflow-y-auto space-y-2 pr-1">
+      </div>
+    </div>
+  </div>
+
+  <!-- ==============================================================================
+       NETFLIX DETAIL MODAL ("Mais Informações" & SELETOR DE EPISÓDIOS)
+       ============================================================================== -->
+  <div id="netflix-detail-modal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-start justify-center p-0 sm:p-4 md:p-6 overflow-y-auto">
+    <div class="bg-netflix-card w-full max-w-4xl min-h-screen sm:min-h-0 sm:rounded-2xl overflow-hidden shadow-2xl border-0 sm:border border-slate-800/80 animate-fade-in relative my-0 sm:my-6 md:my-8">
+      
+      <!-- Close Button -->
+      <button onclick="App.closeDetailModal()" class="absolute top-3 right-3 sm:top-5 sm:right-5 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/75 hover:bg-black text-white flex items-center justify-center text-sm sm:text-base transition border border-white/10 shadow-xl cursor-pointer">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <!-- Modal Banner -->
+      <div id="modal-banner" class="relative w-full min-h-[250px] sm:min-h-[340px] md:min-h-[380px] bg-cover bg-center bg-no-repeat flex items-end p-4 sm:p-6 md:p-8">
+        <div class="absolute inset-0 bg-gradient-to-t from-netflix-card via-black/50 to-transparent"></div>
+        <div class="relative z-10 space-y-2 sm:space-y-3 max-w-2xl">
+          <h2 id="modal-title" class="text-xl sm:text-3xl md:text-4xl font-black text-white drop-shadow-lg leading-tight line-clamp-2">Nome do Título</h2>
+          <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <button id="modal-play-btn" class="px-5 sm:px-6 py-2 sm:py-2.5 rounded bg-white hover:bg-slate-200 text-black font-bold text-xs sm:text-sm flex items-center gap-2 transition shadow-lg cursor-pointer">
+              <i class="fa-solid fa-play"></i> <span id="modal-play-text">Assistir</span>
+            </button>
+            <button id="modal-fav-btn" onclick="App.toggleModalFavorite()" class="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-slate-400 hover:border-white text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer">
+              <i class="fa-regular fa-star"></i>
+            </button>
+            <a id="modal-trailer-btn" href="#" target="_blank" rel="noopener noreferrer" class="hidden px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs flex items-center gap-2 transition cursor-pointer">
+              <i class="fa-brands fa-youtube text-red-500 text-sm"></i> <span>Trailer</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Metadata & Synopsis -->
+      <div class="p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6">
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-semibold">
+          <span class="text-emerald-400 font-bold">99% Relevante</span>
+          <span id="modal-year" class="text-slate-300">2026</span>
+          <span id="modal-rating-badge" class="px-1.5 py-0.5 border rounded text-[10px] font-black text-white bg-[#00A859] border-[#008c4a]">L</span>
+          <span id="modal-badge-format" class="border border-slate-700 px-1.5 py-0.5 rounded text-[10px] text-slate-300">Ultra HD 4K</span>
+          <span id="modal-seasons-badge" class="hidden px-2 py-0.5 bg-netflix-red/20 text-netflix-red border border-netflix-red/30 rounded text-[11px] font-bold"></span>
+          <span id="modal-category" class="text-slate-400">Categoria</span>
+        </div>
+
+        <p id="modal-description" class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          Descrição detalhada do conteúdo.
+        </p>
+
+        <!-- Real Movie & Series EPG / Metadata (Elenco, Diretor, Gênero, Duração) -->
+        <div id="modal-meta-grid" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-400 pt-3 border-t border-slate-800/80">
+          <div id="modal-cast-container" class="hidden"><span class="text-white font-semibold">Elenco:</span> <span id="modal-cast-text" class="text-slate-300"></span></div>
+          <div id="modal-director-container" class="hidden"><span class="text-white font-semibold">Direção:</span> <span id="modal-director-text" class="text-slate-300"></span></div>
+          <div id="modal-genre-container" class="hidden"><span class="text-white font-semibold">Gênero:</span> <span id="modal-genre-text" class="text-slate-300"></span></div>
+          <div id="modal-duration-container" class="hidden"><span class="text-white font-semibold">Duração:</span> <span id="modal-duration-text" class="text-slate-300"></span></div>
+        </div>
+
+        <!-- TABS DE NAVEGAÇÃO DA SÉRIE (ESTILO NETFLIX OFICIAL) -->
+        <div id="modal-series-tabs" class="hidden flex items-center gap-6 border-b border-slate-800 pb-1 pt-4">
+          <button id="modal-tab-episodes-btn" onclick="App.switchDetailTab('episodes')" class="text-sm md:text-base font-bold pb-2 border-b-2 border-netflix-red text-white transition cursor-pointer">
+            Episódios
+          </button>
+          <button id="modal-tab-similar-btn" onclick="App.switchDetailTab('similar')" class="text-sm md:text-base font-bold pb-2 border-b-2 border-transparent text-slate-400 hover:text-white transition cursor-pointer">
+            Títulos Semelhantes
+          </button>
+        </div>
+
+        <!-- SEÇÃO DE SÉRIES: TEMPORADAS E EPISÓDIOS -->
+        <div id="modal-series-section" class="hidden pt-4 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <span>Episódios</span>
+                <span id="series-episodes-total-badge" class="text-xs font-normal text-slate-400"></span>
+              </h3>
+            </div>
+            <div class="flex items-center gap-2">
+              <label for="series-season-select" class="text-xs font-medium text-slate-400">Temporada:</label>
+              <select id="series-season-select" onchange="App.onSeasonSelectChange(this.value)" class="bg-[#242424] text-white border border-slate-700 rounded-md px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-netflix-red cursor-pointer">
+              </select>
+            </div>
+          </div>
+
+          <!-- Loading indicator for episodes -->
+          <div id="modal-episodes-loading" class="hidden py-8 flex flex-col items-center justify-center text-slate-400 gap-2">
+            <div class="w-8 h-8 border-2 border-netflix-red/30 border-t-netflix-red rounded-full animate-spin"></div>
+            <span class="text-xs">Carregando episódios da série...</span>
+          </div>
+
+          <!-- Episodes List -->
+          <div id="modal-episodes-list" class="space-y-2 max-h-96 overflow-y-auto pr-2 divide-y divide-white/5">
+          </div>
+        </div>
+
+        <!-- SEÇÃO OBRIGATÓRIA: TÍTULOS SEMELHANTES ("Mais como este" - LAYOUT NETFLIX) -->
+        <div id="modal-similar-section" class="pt-6 border-t border-slate-800 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-sparkles text-netflix-red"></i>
+              <span>Títulos Semelhantes</span>
+              <span id="modal-similar-count" class="text-xs font-normal text-slate-400"></span>
+            </h3>
+          </div>
+          <div id="modal-similar-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-96 overflow-y-auto pr-1">
+            <!-- Dynamically populated similar titles sharing same category/genre -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==============================================================================
+       EXTREME-INFINITV CONFIGURATION MODAL (LIVING INSTRUMENT PANEL)
+       ============================================================================== -->
+  <div id="settings-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-6 hidden">
+    <div class="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-4xl h-[90vh] max-h-[820px] flex flex-col overflow-hidden shadow-2xl animate-fade-in">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-black/40">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-netflix-red/20 text-netflix-red flex items-center justify-center text-lg">
+            <i class="fa-solid fa-sliders"></i>
+          </div>
+          <div>
+            <h2 class="text-lg md:text-xl font-black text-white tracking-wide">Configurações</h2>
+            <p class="text-xs text-slate-400">Personalize aparência, reprodução, rede e preferências do sistema</p>
+          </div>
+        </div>
+        <button onclick="App.closeSettingsModal()" class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body (Two-Column Layout) -->
+      <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <!-- Left Sidebar / Tabs -->
+        <div class="w-full md:w-56 bg-black/30 border-b md:border-b-0 md:border-r border-white/10 p-2 sm:p-3 flex md:flex-col gap-1 overflow-x-auto md:overflow-y-auto shrink-0">
+          <button onclick="App.switchSettingsTab('appearance')" id="stab-appearance" class="settings-nav-btn active flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs md:text-sm font-semibold transition text-left cursor-pointer whitespace-nowrap">
+            <i class="fa-solid fa-palette text-sm w-4"></i>
+            <span>Aparência</span>
+          </button>
+          <button onclick="App.switchSettingsTab('playback')" id="stab-playback" class="settings-nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs md:text-sm font-semibold transition text-left cursor-pointer text-slate-400 hover:text-white hover:bg-white/5 whitespace-nowrap">
+            <i class="fa-solid fa-play text-sm w-4"></i>
+            <span>Reprodução</span>
+          </button>
+          <button onclick="App.switchSettingsTab('network')" id="stab-network" class="settings-nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs md:text-sm font-semibold transition text-left cursor-pointer text-slate-400 hover:text-white hover:bg-white/5 whitespace-nowrap">
+            <i class="fa-solid fa-network-wired text-sm w-4"></i>
+            <span>Rede & Proxy</span>
+          </button>
+          <button onclick="App.switchSettingsTab('metadata')" id="stab-metadata" class="settings-nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs md:text-sm font-semibold transition text-left cursor-pointer text-slate-400 hover:text-white hover:bg-white/5 whitespace-nowrap">
+            <i class="fa-solid fa-tags text-sm w-4"></i>
+            <span>Metadados & EPG</span>
+          </button>
+          <button onclick="App.switchSettingsTab('data')" id="stab-data" class="settings-nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs md:text-sm font-semibold transition text-left cursor-pointer text-slate-400 hover:text-white hover:bg-white/5 whitespace-nowrap">
+            <i class="fa-solid fa-database text-sm w-4"></i>
+            <span>Dados & Backup</span>
+          </button>
+          <button onclick="App.switchSettingsTab('about')" id="stab-about" class="settings-nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs md:text-sm font-semibold transition text-left cursor-pointer text-slate-400 hover:text-white hover:bg-white/5 whitespace-nowrap">
+            <i class="fa-solid fa-circle-info text-sm w-4"></i>
+            <span>Sobre</span>
+          </button>
+        </div>
+
+        <!-- Right Content Area -->
+        <div class="flex-1 p-4 md:p-6 overflow-y-auto space-y-6">
+
+          <!-- ================= TAB 1: APARÊNCIA ================= -->
+          <div id="settings-panel-appearance" class="space-y-5">
+            <div>
+              <h3 class="text-base font-bold text-white">Aparência & Interface</h3>
+              <p class="text-xs text-slate-400">Personalize o tema de cores, densidade, sons e modos de renderização</p>
+            </div>
+
+            <!-- Card: Reconhecimento do Dispositivo & Perfil Automático -->
+            <div id="device-detected-card" class="settings-surface bg-gradient-to-r from-slate-900 to-black border-white/15 space-y-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div id="device-icon-box" class="w-10 h-10 rounded-xl bg-netflix-red/20 text-netflix-red flex items-center justify-center text-xl shrink-0">
+                    <i id="device-icon" class="fa-solid fa-desktop"></i>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span id="device-badge" class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400">
+                        Dispositivo Reconhecido
+                      </span>
+                      <span class="text-[11px] text-slate-400 font-mono">Pré-Configurado</span>
+                    </div>
+                    <h4 id="device-label" class="text-sm md:text-base font-bold text-white">Computador / Desktop PC</h4>
+                  </div>
+                </div>
+                <button type="button" onclick="App.reapplyDeviceDefaults()" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0">
+                  <i class="fa-solid fa-rotate text-xs"></i>
+                  <span>Reaplicar Perfil Ideal</span>
+                </button>
+              </div>
+              <p id="device-desc" class="text-xs text-slate-300 leading-relaxed border-t border-white/5 pt-2">
+                Layout e configurações otimizados automaticamente para sua tela e hardware.
+              </p>
+            </div>
+
+            <!-- Card: Cor de Destaque (Accent) -->
+            <div class="settings-surface space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="text-sm font-bold text-white">Cor de Destaque (Tema)</h4>
+                  <p class="text-xs text-slate-400">Escolha a cor principal para botões, bordas e destaques</p>
+                </div>
+                <span id="active-accent-name" class="text-xs font-mono text-slate-300 px-2 py-0.5 rounded bg-white/5">Vermelho Netflix</span>
+              </div>
+              <div id="accent-swatches-grid" class="flex flex-wrap gap-2.5 pt-2">
+                <!-- Injected via JavaScript -->
+              </div>
+            </div>
+
+            <!-- Card: Tamanho da Fonte -->
+            <div class="settings-surface space-y-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">Tamanho da Fonte</h4>
+                <p class="text-xs text-slate-400">Aumenta ou diminui a escala tipográfica para telas normais ou Smart TVs distantes</p>
+              </div>
+              <div class="segmented-group" id="font-scale-group">
+                <button type="button" onclick="App.setFontScale('small')" data-val="small" class="segmented-btn">Pequeno</button>
+                <button type="button" onclick="App.setFontScale('default')" data-val="default" class="segmented-btn active">Padrão</button>
+                <button type="button" onclick="App.setFontScale('medium')" data-val="medium" class="segmented-btn">Médio</button>
+                <button type="button" onclick="App.setFontScale('large')" data-val="large" class="segmented-btn">Grande</button>
+                <button type="button" onclick="App.setFontScale('xlarge')" data-val="xlarge" class="segmented-btn">Muito Grande</button>
+              </div>
+            </div>
+
+            <!-- Card: Densidade da Interface -->
+            <div class="settings-surface space-y-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">Densidade dos Elementos</h4>
+                <p class="text-xs text-slate-400">Espaçamento e dimensões dos cartões e pôsteres no catálogo</p>
+              </div>
+              <div class="segmented-group" id="density-group">
+                <button type="button" onclick="App.setDensity('compact')" data-val="compact" class="segmented-btn">Compacta</button>
+                <button type="button" onclick="App.setDensity('cozy')" data-val="cozy" class="segmented-btn active">Aconchegante</button>
+                <button type="button" onclick="App.setDensity('comfortable')" data-val="comfortable" class="segmented-btn">Confortável</button>
+              </div>
+            </div>
+
+            <!-- Card: Modo de Desempenho -->
+            <div class="settings-surface flex items-center justify-between gap-4">
+              <div>
+                <h4 class="text-sm font-bold text-white">Modo de Desempenho</h4>
+                <p class="text-xs text-slate-400">Desativa animações decorativas e efeitos blur para melhor fluidez em Smart TVs e dispositivos modestos</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="setting-perf-mode" onchange="App.togglePerfMode(this.checked)" class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-netflix-red"></div>
+              </label>
+            </div>
+
+            <!-- Card: Sons de Interface -->
+            <div class="settings-surface flex items-center justify-between gap-4">
+              <div>
+                <h4 class="text-sm font-bold text-white">Sons da Interface (Web Audio)</h4>
+                <p class="text-xs text-slate-400">Toques suaves de inicialização e cliques sutis de navegação ao interagir</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <button type="button" onclick="SettingsManager.playUiSound('select')" class="px-2.5 py-1 text-xs rounded bg-white/10 hover:bg-white/20 text-slate-200 transition">Testar</button>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="setting-ui-sounds" onchange="App.toggleUiSounds(this.checked)" checked class="sr-only peer">
+                  <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-netflix-red"></div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Card: Vibração ao Toque (Haptics) -->
+            <div class="settings-surface flex items-center justify-between gap-4">
+              <div>
+                <h4 class="text-sm font-bold text-white">Vibração ao Toque (Haptics)</h4>
+                <p class="text-xs text-slate-400">Resposta tátil suave ao adicionar títulos à lista ou selecionar opções em smartphones</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="setting-haptics" onchange="App.toggleHaptics(this.checked)" checked class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-netflix-red"></div>
+              </label>
+            </div>
+
+            <!-- Card: TV Safe Area (Overscan) -->
+            <div class="settings-surface space-y-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">Área Segura da TV (Overscan)</h4>
+                <p class="text-xs text-slate-400">Aplica recuo nas bordas para compensar cortes causados pelo overscan de algumas televisões</p>
+              </div>
+              <div class="segmented-group" id="overscan-group">
+                <button type="button" onclick="App.setTvOverscan(0)" data-val="0" class="segmented-btn active">0% (Padrão)</button>
+                <button type="button" onclick="App.setTvOverscan(2)" data-val="2" class="segmented-btn">2%</button>
+                <button type="button" onclick="App.setTvOverscan(4)" data-val="4" class="segmented-btn">4%</button>
+                <button type="button" onclick="App.setTvOverscan(6)" data-val="6" class="segmented-btn">6%</button>
+                <button type="button" onclick="App.setTvOverscan(8)" data-val="8" class="segmented-btn">8%</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= TAB 2: REPRODUÇÃO ================= -->
+          <div id="settings-panel-playback" class="space-y-5 hidden">
+            <div>
+              <h3 class="text-base font-bold text-white">Reprodução de Vídeo & Áudio</h3>
+              <p class="text-xs text-slate-400">Formato de tela, motor de player, decodificação de áudio e retenção de progresso</p>
+            </div>
+
+            <!-- Card: Proporção Padrão (Aspect Ratio) -->
+            <div class="settings-surface space-y-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">Proporção Padrão de Reprodução</h4>
+                <p class="text-xs text-slate-400">Modo de ajuste do vídeo na tela. Por padrão, sempre em 'Preencher' para eliminar barras pretas.</p>
+              </div>
+              <div class="segmented-group" id="video-scale-group">
+                <button type="button" onclick="App.setVideoScaleMode('cover')" data-val="cover" class="segmented-btn active">Preencher (Cover)</button>
+                <button type="button" onclick="App.setVideoScaleMode('contain')" data-val="contain" class="segmented-btn">Ajustar (Fit)</button>
+                <button type="button" onclick="App.setVideoScaleMode('original')" data-val="original" class="segmented-btn">Original 100%</button>
+                <button type="button" onclick="App.setVideoScaleMode('fill')" data-val="fill" class="segmented-btn">Esticar (Fill)</button>
+              </div>
+            </div>
+
+            <!-- Card: Motor de Reprodução (Player Backend) -->
+            <div class="settings-surface space-y-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">Motor de Reprodução (Engine)</h4>
+                <p class="text-xs text-slate-400">Motor responsável por processar transmissões ao vivo e arquivos de mídia</p>
+              </div>
+              <div class="segmented-group" id="player-backend-group">
+                <button type="button" onclick="App.setPlayerBackend('auto')" data-val="auto" class="segmented-btn active">Automático (Inteligente)</button>
+                <button type="button" onclick="App.setPlayerBackend('hlsjs')" data-val="hlsjs" class="segmented-btn">Hls.js Buffer Estendido</button>
+                <button type="button" onclick="App.setPlayerBackend('native')" data-val="native" class="segmented-btn">HTML5 Nativo</button>
+              </div>
+            </div>
+
+            <!-- Card: Correção Automática de Áudio -->
+            <div class="settings-surface flex items-center justify-between gap-4">
+              <div>
+                <h4 class="text-sm font-bold text-white">Correção Automática de Áudio</h4>
+                <p class="text-xs text-slate-400">Downmix inteligente e transcode automático para transmissões com faixas AC-3, E-AC-3 ou DTS</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="setting-audio-transcode" onchange="App.toggleAudioTranscode(this.checked)" checked class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-netflix-red"></div>
+              </label>
+            </div>
+
+            <!-- Card: Áudio Mono -->
+            <div class="settings-surface flex items-center justify-between gap-4">
+              <div>
+                <h4 class="text-sm font-bold text-white">Áudio Mono (Downmix 1 Canal)</h4>
+                <p class="text-xs text-slate-400">Combina os canais esquerdo e direito para audição com fone único ou aparelhos mono</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="setting-mono-audio" onchange="App.toggleMonoAudio(this.checked)" class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-netflix-red"></div>
+              </label>
+            </div>
+
+            <!-- Card: Legendas Automáticas -->
+            <div class="settings-surface flex items-center justify-between gap-4">
+              <div>
+                <h4 class="text-sm font-bold text-white">Legendas Ativadas por Padrão</h4>
+                <p class="text-xs text-slate-400">Inicia a reprodução de filmes e séries sempre com legendas ativadas se disponíveis</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="setting-captions-auto" onchange="App.toggleCaptionsAuto(this.checked)" class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-netflix-red"></div>
+              </label>
+            </div>
+
+            <!-- Card: Retenção de Histórico -->
+            <div class="settings-surface space-y-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">Retenção de "Continuar Assistindo"</h4>
+                <p class="text-xs text-slate-400">Tempo que os pontos de reprodução salvos permanecem armazenados</p>
+              </div>
+              <div class="segmented-group" id="progress-retention-group">
+                <button type="button" onclick="App.setProgressRetention(30)" data-val="30" class="segmented-btn">30 dias</button>
+                <button type="button" onclick="App.setProgressRetention(90)" data-val="90" class="segmented-btn active">90 dias</button>
+                <button type="button" onclick="App.setProgressRetention(180)" data-val="180" class="segmented-btn">180 dias</button>
+                <button type="button" onclick="App.setProgressRetention(0)" data-val="0" class="segmented-btn">Permanente</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= TAB 3: REDE & PROXY ================= -->
+          <div id="settings-panel-network" class="space-y-5 hidden">
+            <div>
+              <h3 class="text-base font-bold text-white">Rede & Conexão Proxy</h3>
+              <p class="text-xs text-slate-400">Configurações de User-Agent, timeouts e anonimização de IP fixo</p>
+            </div>
+
+            <!-- Card: Status do Proxy Central -->
+            <div class="settings-surface bg-emerald-500/10 border-emerald-500/30 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
+                  <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-white">Túnel Proxy com IP Fixo Ativo</h4>
+                  <p class="text-xs text-emerald-300">Todas as transmissões saem centralizadas pelo servidor (VLC Engine). Nenhum IP de cliente é revelado.</p>
+                </div>
+              </div>
+              <span class="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 text-xs font-bold font-mono">SEGURO</span>
+            </div>
+
+            <!-- Card: User-Agent Preset -->
+            <div class="settings-surface space-y-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">Preset de User-Agent do Proxy</h4>
+                <p class="text-xs text-slate-400">Identificação enviada pelo proxy ao servidor remoto para máxima estabilidade de conexão</p>
+              </div>
+              <select id="setting-ua-select" onchange="App.onUserAgentChange(this.value)" class="w-full bg-black/60 border border-slate-700 rounded-lg px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-netflix-red">
+                <option value="default">VLC Media Player 3.0.20 (Padrão Recomendado)</option>
+                <option value="kodi">Kodi 20.5 Media Center</option>
+                <option value="ott">OTT Navigator 1.7.0</option>
+                <option value="smart-tv">Samsung Smart TV (Tizen 6.0)</option>
+                <option value="custom">Personalizado (Digitar abaixo)</option>
+              </select>
+              <div id="custom-ua-container" class="hidden pt-2">
+                <input type="text" id="setting-custom-ua" placeholder="Cole o User-Agent customizado aqui..." onchange="App.onCustomUserAgentChange(this.value)" class="w-full bg-black/80 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-netflix-red">
+              </div>
+            </div>
+
+            <!-- Card: Timeout de Requisição -->
+            <div class="settings-surface space-y-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">Timeout de Conexão (Segundos)</h4>
+                <p class="text-xs text-slate-400">Tempo limite de espera ao conectar em um canal ou carregar segmentos de vídeo</p>
+              </div>
+              <div class="segmented-group" id="network-timeout-group">
+                <button type="button" onclick="App.setNetworkTimeout(20)" data-val="20" class="segmented-btn">20s</button>
+                <button type="button" onclick="App.setNetworkTimeout(30)" data-val="30" class="segmented-btn active">30s</button>
+                <button type="button" onclick="App.setNetworkTimeout(45)" data-val="45" class="segmented-btn">45s</button>
+                <button type="button" onclick="App.setNetworkTimeout(90)" data-val="90" class="segmented-btn">90s</button>
+              </div>
+            </div>
+
+            <!-- Card: Modo Desenvolvedor / Diagnóstico -->
+            <div class="settings-surface flex items-center justify-between gap-4">
+              <div>
+                <h4 class="text-sm font-bold text-white">Modo Desenvolvedor (HUD Diagnóstico)</h4>
+                <p class="text-xs text-slate-400">Exibe uma caixa de métricas ao vivo com buffer em tempo real, resolução e status de rede</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="setting-dev-mode" onchange="App.toggleDevMode(this.checked)" class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-netflix-red"></div>
+              </label>
+            </div>
+          </div>
+
+          <!-- ================= TAB 4: METADADOS & EPG ================= -->
+          <div id="settings-panel-metadata" class="space-y-5 hidden">
+            <div>
+              <h3 class="text-base font-bold text-white">Metadados & Guia de Programação (EPG)</h3>
+              <p class="text-xs text-slate-400">Capas em alta resolução, sinopses oficiais e dados da programação</p>
+            </div>
+
+            <!-- Card: Enriquecimento TMDB -->
+            <div class="settings-surface flex items-center justify-between gap-4">
+              <div>
+                <h4 class="text-sm font-bold text-white">Enriquecimento de Metadados (TMDB)</h4>
+                <p class="text-xs text-slate-400">Busca automática de capas 1280px, sinopses oficiais em português, notas e elenco</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="setting-tmdb-enabled" onchange="App.toggleTmdb(this.checked)" checked class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-netflix-red"></div>
+              </label>
+            </div>
+
+            <!-- Card: Chave API TMDB -->
+            <div class="settings-surface space-y-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">Chave API Pessoal do TMDB (Opcional)</h4>
+                <p class="text-xs text-slate-400">Insira sua própria chave gratuita do The Movie Database (TMDB) se desejar mais requisições</p>
+              </div>
+              <div class="flex gap-2">
+                <input type="text" id="setting-tmdb-key" placeholder="Insira sua chave TMDB v3..." class="flex-1 bg-black/60 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-netflix-red">
+                <button type="button" onclick="App.saveTmdbKey()" class="px-4 py-2 bg-netflix-red hover:bg-netflix-red-hover text-white text-xs font-bold rounded-lg transition cursor-pointer">Salvar</button>
+              </div>
+            </div>
+
+            <!-- Card: Fuso Horário EPG -->
+            <div class="settings-surface space-y-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">Fuso Horário do Guia de Programação</h4>
+                <p class="text-xs text-slate-400">Ajusta o horário dos programas atuais e futuros no guia de TV</p>
+              </div>
+              <select id="setting-epg-tz" onchange="App.setEpgTimezone(this.value)" class="w-full bg-black/60 border border-slate-700 rounded-lg px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-netflix-red">
+                <option value="America/Sao_Paulo">Horário de Brasília (GMT-3)</option>
+                <option value="America/Manaus">Horário de Manaus (GMT-4)</option>
+                <option value="America/Noronha">Fernando de Noronha (GMT-2)</option>
+                <option value="UTC">UTC (Universal)</option>
+                <option value="Europe/Lisbon">Lisboa (GMT+0 / GMT+1)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- ================= TAB 5: DADOS & BACKUP ================= -->
+          <div id="settings-panel-data" class="space-y-5 hidden">
+            <div>
+              <h3 class="text-base font-bold text-white">Dados, Cache & Armazenamento</h3>
+              <p class="text-xs text-slate-400">Exportação e importação de configurações, limpeza de cache e restauração</p>
+            </div>
+
+            <!-- Card: Uso de Armazenamento -->
+            <div class="settings-surface space-y-2">
+              <h4 class="text-sm font-bold text-white">Armazenamento Local em Cache</h4>
+              <div class="grid grid-cols-2 gap-3 pt-1">
+                <div class="bg-black/40 border border-white/5 rounded-lg p-3">
+                  <div class="text-[11px] text-slate-400">Configurações & Favoritos:</div>
+                  <div id="storage-ls-size" class="text-base font-bold text-white font-mono">Calculando...</div>
+                </div>
+                <div class="bg-black/40 border border-white/5 rounded-lg p-3">
+                  <div class="text-[11px] text-slate-400">Cache de Mídia & Banco:</div>
+                  <div id="storage-idb-size" class="text-base font-bold text-white font-mono">Calculando...</div>
+                </div>
+              </div>
+              <div class="pt-2">
+                <button type="button" onclick="App.clearSystemCache()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition border border-white/10 flex items-center gap-2 cursor-pointer">
+                  <i class="fa-solid fa-broom"></i>
+                  <span>Limpar Cache do Navegador</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Card: Backup e Restauração -->
+            <div class="settings-surface space-y-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">Backup & Restauração Completa (JSON)</h4>
+                <p class="text-xs text-slate-400">Exporte todas as preferências, cores, favoritos e progresso de vídeos para um arquivo seguro</p>
+              </div>
+              <div class="flex flex-wrap gap-3 pt-1">
+                <button type="button" onclick="SettingsManager.exportBackupData()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition flex items-center gap-2 cursor-pointer shadow">
+                  <i class="fa-solid fa-download"></i>
+                  <span>Exportar Backup (.json)</span>
+                </button>
+                <label class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition flex items-center gap-2 cursor-pointer shadow">
+                  <i class="fa-solid fa-upload"></i>
+                  <span>Importar Backup (.json)</span>
+                  <input type="file" id="backup-file-input" accept=".json" onchange="App.importBackupFile(this)" class="hidden">
+                </label>
+              </div>
+            </div>
+
+            <!-- Card: Padrões de Fábrica -->
+            <div class="settings-surface border-red-500/30 bg-red-500/5 space-y-3">
+              <div>
+                <h4 class="text-sm font-bold text-red-400">Restaurar Padrões</h4>
+                <p class="text-xs text-slate-400">Restaura todas as configurações visuais, de áudio e de rede para os valores padrão de fábrica</p>
+              </div>
+              <button type="button" onclick="App.resetSettingsToDefaults()" class="px-4 py-2 bg-red-600/80 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition cursor-pointer">
+                Redefinir Preferências
+              </button>
+            </div>
+          </div>
+
+          <!-- ================= TAB 6: SOBRE ================= -->
+          <div id="settings-panel-about" class="space-y-5 hidden">
+            <div>
+              <h3 class="text-base font-bold text-white">Sobre o Sistema</h3>
+              <p class="text-xs text-slate-400">Informações técnicas e arquitetura do NovaFlix Streaming</p>
+            </div>
+
+            <div class="settings-surface space-y-4">
+              <div class="flex items-center gap-4">
+                <div class="w-14 h-14 rounded-2xl bg-netflix-red flex items-center justify-center text-white text-2xl font-black shadow-lg">
+                  N
+                </div>
+                <div>
+                  <h4 class="text-lg font-black text-white">NovaFlix Streaming</h4>
+                  <p class="text-xs text-slate-400">Versão 2.5.0 (Extreme Configuration Engine)</p>
+                </div>
+              </div>
+
+              <div class="space-y-2 text-xs text-slate-300 border-t border-white/5 pt-3">
+                <div class="flex justify-between py-1 border-b border-white/5">
+                  <span class="text-slate-400">Motor de Configurações:</span>
+                  <span class="font-mono text-white">Extreme-InfiniTV Architecture</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-white/5">
+                  <span class="text-slate-400">Plataforma Detectada:</span>
+                  <span id="about-platform" class="font-mono text-white">Web / Desktop</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-white/5">
+                  <span class="text-slate-400">Segurança de Rede:</span>
+                  <span class="font-mono text-emerald-400">Proxy AES-256 + Fixed IP</span>
+                </div>
+                <div class="flex justify-between py-1">
+                  <span class="text-slate-400">Provedor de Metadados:</span>
+                  <span class="font-mono text-white">Xtream Server & TMDB</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Modal Footer com Botão de Salvar Alterações -->
+      <div class="px-6 py-4 border-t border-white/10 bg-black/70 flex items-center justify-between">
+        <div class="flex items-center gap-2 text-xs text-slate-400">
+          <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+          <span class="hidden sm:inline">Configurações sincronizadas com persistência local e criptografia.</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="App.closeSettingsModal()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-semibold transition cursor-pointer">
+            Cancelar
+          </button>
+          <button onclick="App.saveAllSettings()" class="px-6 py-2.5 rounded-xl bg-netflix-red hover:bg-netflix-hoverRed text-white text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-netflix-red/30 cursor-pointer">
+            <i class="fa-solid fa-floppy-disk text-xs"></i>
+            <span>Salvar Alterações</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEVELOPER DIAGNOSTICS HUD (ATIVADO EM REDE > MODO DEV) -->
+  <div id="dev-diagnostics-hud" class="hidden fixed bottom-14 left-4 z-40 bg-black/85 border border-emerald-500/40 rounded-lg p-3 text-[11px] text-emerald-400 font-mono shadow-xl backdrop-blur max-w-xs space-y-1 select-none pointer-events-none">
+    <div class="flex items-center justify-between text-xs font-bold border-b border-emerald-500/20 pb-1 text-white">
+      <span>DIAGNÓSTICO AO VIVO</span>
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+    </div>
+    <div class="flex justify-between"><span class="text-slate-400">Buffer:</span> <span id="hud-buffer">0.0s</span></div>
+    <div class="flex justify-between"><span class="text-slate-400">Resolução:</span> <span id="hud-resolution">-</span></div>
+    <div class="flex justify-between"><span class="text-slate-400">Motor:</span> <span id="hud-engine">Hls.js / Native</span></div>
+    <div class="flex justify-between"><span class="text-slate-400">Proxy:</span> <span class="text-white">IP Fixo Central</span></div>
+  </div>
+
+  <!-- TOAST NOTIFICATIONS (SEMPRE NO TOPO DE QUALQUER MODAL) -->
+  <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 md:top-auto md:bottom-6 md:right-6 md:left-auto md:translate-x-0 z-[99999] flex flex-col gap-2 pointer-events-none w-[90%] max-w-sm md:w-auto items-center md:items-end"></div>
+
+  <!-- MOBILE BOTTOM NAVIGATION BAR (Início, Filmes, Séries, Ver Tudo e Minha Lista) -->
+  <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-md border-t border-slate-800/80 z-40 flex items-center justify-around py-2.5 px-2 text-[11px] text-slate-400 select-none pb-[calc(0.6rem+env(safe-area-inset-bottom))]">
+    <button onclick="App.filterView('ALL')" id="bottom-nav-all" class="flex flex-col items-center gap-1 text-white font-bold transition flex-1 text-center py-1">
+      <i class="fa-solid fa-house text-base"></i>
+      <span>Início</span>
+    </button>
+    <button onclick="App.filterView('MOVIES')" id="bottom-nav-movies" class="flex flex-col items-center gap-1 hover:text-white transition flex-1 text-center py-1">
+      <i class="fa-solid fa-film text-base"></i>
+      <span>Filmes</span>
+    </button>
+    <button onclick="App.filterView('SERIES')" id="bottom-nav-series" class="flex flex-col items-center gap-1 hover:text-white transition flex-1 text-center py-1">
+      <i class="fa-solid fa-tv text-base"></i>
+      <span>Séries</span>
+    </button>
+    <button onclick="App.filterView('ADULT')" id="bottom-nav-adult" class="hidden flex-col items-center gap-1 text-rose-400 hover:text-rose-300 transition flex-1 text-center py-1">
+      <i class="fa-solid fa-fire text-base text-rose-500"></i>
+      <span>+18</span>
+    </button>
+    <button onclick="App.openFullCategoryView('all', '', 'Grade Completa de Títulos')" id="bottom-nav-grid" class="flex flex-col items-center gap-1 hover:text-white transition flex-1 text-center py-1">
+      <i class="fa-solid fa-table-cells text-base text-netflix-red"></i>
+      <span>Ver Tudo</span>
+    </button>
+    <button onclick="App.filterView('FAVORITES')" id="bottom-nav-favorites" class="flex flex-col items-center gap-1 hover:text-white transition flex-1 text-center py-1 relative">
+      <i class="fa-solid fa-bookmark text-base text-netflix-red"></i>
+      <span>Minha Lista</span>
+      <span id="bottom-nav-favorites-count" class="hidden px-1.5 py-0.2 rounded-full bg-netflix-red text-white text-[9px] font-bold"></span>
+    </button>
+  </nav>
+
+  <!-- ==============================================================================
+       FEEDBACK & SAC MODAL (CENTRAL DE MENSAGENS)
+       ============================================================================== -->
+  <div id="netflix-feedback-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+    <div class="relative w-full max-w-lg bg-[#181818] border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl animate-fade-in overflow-hidden">
+      <!-- Glow background -->
+      <div class="absolute -top-16 -right-16 w-36 h-36 bg-netflix-red/10 rounded-full blur-2xl pointer-events-none"></div>
+
+      <!-- Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800/80 mb-5">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-netflix-red/15 text-netflix-red flex items-center justify-center font-bold text-sm">
+            <i class="fa-solid fa-comments"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Central de Feedback & Suporte</h3>
+            <p class="text-[11px] text-slate-400">Envie sugestões, dúvidas ou relate problemas com a transmissão</p>
+          </div>
+        </div>
+        <button onclick="App.closeFeedbackModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Feedback Form -->
+      <form id="feedback-form" onsubmit="App.submitFeedback(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-2">Selecione o Tipo de Mensagem</label>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="cursor-pointer">
+              <input type="radio" name="feedback_tipo" value="reclamacao" class="sr-only peer" checked>
+              <div class="p-2.5 rounded-xl border border-slate-800 bg-[#121212] peer-checked:border-rose-500 peer-checked:bg-rose-500/10 text-center transition">
+                <i class="fa-solid fa-triangle-exclamation text-rose-400 text-sm block mb-1"></i>
+                <span class="text-xs font-bold text-slate-300 peer-checked:text-rose-400">Reclamação</span>
+              </div>
+            </label>
+
+            <label class="cursor-pointer">
+              <input type="radio" name="feedback_tipo" value="sugestao" class="sr-only peer">
+              <div class="p-2.5 rounded-xl border border-slate-800 bg-[#121212] peer-checked:border-sky-500 peer-checked:bg-sky-500/10 text-center transition">
+                <i class="fa-solid fa-lightbulb text-sky-400 text-sm block mb-1"></i>
+                <span class="text-xs font-bold text-slate-300 peer-checked:text-sky-400">Sugestão</span>
+              </div>
+            </label>
+
+            <label class="cursor-pointer">
+              <input type="radio" name="feedback_tipo" value="observacao" class="sr-only peer">
+              <div class="p-2.5 rounded-xl border border-slate-800 bg-[#121212] peer-checked:border-amber-500 peer-checked:bg-amber-500/10 text-center transition">
+                <i class="fa-solid fa-comment-dots text-amber-400 text-sm block mb-1"></i>
+                <span class="text-xs font-bold text-slate-300 peer-checked:text-amber-400">Observação</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Sua Mensagem</label>
+          <textarea id="feedback-mensagem-input" rows="4" required placeholder="Descreva aqui o canal com problema, o título que gostaria de ver no catálogo ou sua sugestão de melhoria..."
+            class="w-full p-3 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-netflix-red resize-none"></textarea>
+        </div>
+
+        <div class="pt-2 flex items-center justify-between">
+          <span class="text-[11px] text-slate-500">Sua mensagem é enviada diretamente aos administradores</span>
+          <button type="submit" id="feedback-submit-btn" class="px-5 py-2.5 bg-netflix-red hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-netflix-red/30 flex items-center gap-2">
+            <span>Enviar Mensagem</span>
+            <i class="fa-solid fa-paper-plane text-xs"></i>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==============================================================================
+       USER PROFILE MODAL ("MEU PERFIL" - IDENTIFICAÇÃO E MODO KIDS)
+       ============================================================================== -->
+  <div id="user-profile-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 animate-fade-in">
+    <div class="relative w-full max-w-md max-h-[92vh] overflow-y-auto bg-[#181818] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 sticky top-0 bg-[#181818] z-10">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-netflix-red text-white flex items-center justify-center text-lg font-black shadow-lg">
+            <i id="profile-modal-avatar-preview" class="fa-solid fa-user"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Meu Perfil de Acesso</h3>
+            <p id="profile-modal-subtitle" class="text-xs text-slate-400">Identificação para suporte, Minha Lista e Modo Kids</p>
+          </div>
+        </div>
+        <button onclick="App.closeProfileModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Banner exibido caso o usuário tenha clicado em favoritar antes de preencher o perfil -->
+      <div id="profile-favorite-required-alert" class="hidden p-3 rounded-xl bg-netflix-red/15 border border-netflix-red/40 text-xs text-slate-200 flex items-start gap-2.5">
+        <i class="fa-solid fa-bookmark text-netflix-red text-sm shrink-0 mt-0.5"></i>
+        <div>
+          <div class="font-bold text-white">Quase lá! Preencha seu perfil para continuar</div>
+          <div class="text-[11px] text-slate-300 mt-0.5">Para desbloquear a reprodução e salvar na Minha Lista, informe seu Nome, Gênero e Idade abaixo:</div>
+        </div>
+      </div>
+
+      <form onsubmit="App.saveUserProfile(event)" class="space-y-4">
+        <!-- Nome -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Seu Nome ou Apelido:</label>
+          <input type="text" id="profile-name-input" required placeholder="Ex: Lucas, Mariana, Miguel..." class="w-full bg-[#121212] border border-slate-700 focus:border-netflix-red rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition">
+        </div>
+
+        <!-- Tipo de Perfil / Gênero -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Perfil / Gênero:</label>
+          <div class="grid grid-cols-2 gap-2 sm:gap-2.5">
+            <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#121212] border border-slate-700 hover:border-slate-500 text-xs text-slate-200 cursor-pointer has-[:checked]:border-sky-400 has-[:checked]:bg-sky-400/10 has-[:checked]:text-white transition">
+              <input type="radio" name="profile_gender" value="Homem" class="hidden" onchange="App.onProfileGenderChange('Homem')">
+              <i class="fa-solid fa-person text-base text-sky-400"></i>
+              <span class="font-bold">Homem</span>
+            </label>
+            <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#121212] border border-slate-700 hover:border-slate-500 text-xs text-slate-200 cursor-pointer has-[:checked]:border-rose-400 has-[:checked]:bg-rose-400/10 has-[:checked]:text-white transition">
+              <input type="radio" name="profile_gender" value="Mulher" class="hidden" onchange="App.onProfileGenderChange('Mulher')">
+              <i class="fa-solid fa-person-dress text-base text-rose-400"></i>
+              <span class="font-bold">Mulher</span>
+            </label>
+            <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#121212] border border-slate-700 hover:border-slate-500 text-xs text-slate-200 cursor-pointer has-[:checked]:border-amber-400 has-[:checked]:bg-amber-400/10 has-[:checked]:text-white transition">
+              <input type="radio" name="profile_gender" value="Criança" class="hidden" onchange="App.onProfileGenderChange('Criança')">
+              <i class="fa-solid fa-shapes text-base text-amber-400"></i>
+              <span class="font-bold">Criança 🧸</span>
+            </label>
+            <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#121212] border border-slate-700 hover:border-slate-500 text-xs text-slate-200 cursor-pointer has-[:checked]:border-purple-400 has-[:checked]:bg-purple-400/10 has-[:checked]:text-white transition">
+              <input type="radio" name="profile_gender" value="Outro" class="hidden" onchange="App.onProfileGenderChange('Outro')">
+              <i class="fa-solid fa-user-astronaut text-base text-purple-400"></i>
+              <span class="font-bold">Outro</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Idade (Pedágio Obrigatório para Desbloqueio do Player & Proteção Parental) -->
+        <div id="profile-age-group">
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+            <span>Sua Idade (Obrigatório):</span>
+            <span id="profile-age-badge" class="text-[10px] text-emerald-400 font-bold"></span>
+          </label>
+          <input type="number" id="profile-age-input" required min="1" max="120" placeholder="Ex: 24" oninput="App.onProfileAgeChange()" class="w-full bg-[#121212] border border-slate-700 focus:border-netflix-red rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition">
+          <p class="text-[10px] text-slate-500 mt-1">
+            Necessário para personalizar seu catálogo, aplicar controle de maioridade e desbloquear a reprodução.
+          </p>
+        </div>
+
+        <!-- Seção Dinâmica para Maiores de 18 Anos (Conteúdos Adultos +18 no Painel e em Ver Tudo) -->
+        <div id="profile-adult-toggle-container" class="hidden p-3 rounded-xl bg-rose-950/25 border border-rose-500/30 flex items-center justify-between gap-3 animate-fade-in">
+          <div class="space-y-0.5">
+            <div class="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+              <span>🔞 Conteúdos Adultos (+18) — Filmes &amp; Séries</span>
+            </div>
+            <p class="text-[10px] text-slate-400">
+              Exibe todos os filmes e séries adultas (+18) no painel e em "Ver Tudo".
+            </p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer shrink-0">
+            <input type="checkbox" id="profile-show-adult-toggle" checked class="sr-only peer">
+            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+          </label>
+        </div>
+
+        <!-- Seção Dinâmica de Idade da Criança (Visível apenas se Criança) -->
+        <div id="profile-kids-age-group" class="hidden p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1.5 animate-fade-in">
+          <label class="block text-xs font-bold text-amber-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-child-reaching"></i>
+            <span>Faixa Etária / Idade da Criança:</span>
+          </label>
+          <select id="profile-kids-age-input" class="w-full bg-[#121212] border border-amber-500/40 focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+            <option value="4">Até 5 anos (Primeira Infância / Desenhos Leves)</option>
+            <option value="8" selected>6 a 9 anos (Desenhos, Animações e Filmes Kids)</option>
+            <option value="12">10 a 13 anos (Kids, Teens e Séries Infanto-Juvenis)</option>
+          </select>
+          <p class="text-[10px] text-amber-200/80">
+            🛡️ O modo infantil organiza a tela inicial com foco total em desenhos, filmes familiares e animações.
+          </p>
+        </div>
+
+        <!-- Botões de Ação do Perfil -->
+        <div class="pt-2 flex items-center justify-end gap-2">
+          <button type="button" onclick="App.closeProfileModal()" class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition cursor-pointer">
+            Cancelar
+          </button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-netflix-red hover:bg-netflix-hoverRed text-white text-xs font-bold transition shadow-lg cursor-pointer">
+            Salvar Perfil
+          </button>
+        </div>
+      </form>
+
+      <!-- Recursos & Preferências (Configurações, Suporte/Feedback, Servidor e Dados) -->
+      <div class="pt-3 border-t border-slate-800/80 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-sliders text-netflix-red text-xs"></i>
+            <span>Central de Preferências</span>
+          </span>
+          <span class="text-[10px] text-slate-500 font-medium">Acesso Rápido</span>
+        </div>
+
+        <!-- Botões Principais: Configurações & Suporte/Feedback (Exclusivos no Perfil) -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <!-- Botão Configurações -->
+          <button type="button" onclick="App.openSettingsDirect()" class="p-3 rounded-2xl bg-[#141414] hover:bg-slate-800 border border-slate-700/80 hover:border-slate-500 text-white flex flex-col items-center justify-center gap-1.5 transition cursor-pointer active:scale-95 group shadow-sm">
+            <span class="w-9 h-9 rounded-full bg-white/10 group-hover:bg-white/20 flex items-center justify-center text-slate-200 transition">
+              <i class="fa-solid fa-gear text-base"></i>
+            </span>
+            <span class="text-xs font-bold">Configurações</span>
+            <span class="text-[10px] text-slate-400">Player, áudio e vídeo</span>
+          </button>
+
+          <!-- Botão Feedback / Suporte -->
+          <button type="button" onclick="App.openFeedbackDirect()" class="p-3 rounded-2xl bg-[#141414] hover:bg-slate-800 border border-slate-700/80 hover:border-netflix-red/60 text-white flex flex-col items-center justify-center gap-1.5 transition cursor-pointer active:scale-95 group shadow-sm">
+            <span class="w-9 h-9 rounded-full bg-netflix-red/20 group-hover:bg-netflix-red/30 flex items-center justify-center text-netflix-red transition">
+              <i class="fa-solid fa-comment-dots text-base"></i>
+            </span>
+            <span class="text-xs font-bold">Feedback & SAC</span>
+            <span class="text-[10px] text-slate-400">Canal de suporte direto</span>
+          </button>
+        </div>
+
+        <!-- Botão Instalar Aplicativo (PWA / Mobile / PC) -->
+        <button type="button" id="profile-install-btn" onclick="App.openInstallAppModal()" class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-red-700 to-netflix-red hover:from-red-600 hover:to-red-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-lg active:scale-95">
+          <i class="fa-solid fa-mobile-screen-button text-sm"></i>
+          <span>Instalar Aplicativo (Mobile / PC)</span>
+        </button>
+
+        <!-- Ações do Servidor e Dados Locais -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+          <button type="button" onclick="App.openSetupIpModal()" class="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer active:scale-95">
+            <i class="fa-solid fa-server text-xs text-sky-400"></i>
+            <span>Alterar Servidor ADM</span>
+          </button>
+
+          <button type="button" onclick="App.clearAppData()" class="py-2.5 px-3 rounded-xl bg-rose-950/20 hover:bg-rose-900/40 border border-rose-800/40 text-rose-400 hover:text-rose-300 text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer active:scale-95">
+            <i class="fa-solid fa-trash-can text-xs"></i>
+            <span>Limpar Dados do App</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==============================================================================
+       INSTALL APP MODAL (DOWNLOAD .EXE, .APK, PWA)
+       ============================================================================== -->
+  <div id="install-app-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in" onclick="if(event.target === this) App.closeInstallAppModal()">
+    <div class="relative w-full max-w-md bg-[#161616] border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-4" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-full bg-netflix-red/20 text-netflix-red flex items-center justify-center text-sm border border-netflix-red/30">
+            <i class="fa-solid fa-cloud-arrow-down"></i>
+          </span>
+          <div>
+            <h3 class="text-sm font-bold text-white">Instalar Aplicativo NovaFlix</h3>
+            <span class="text-[10px] text-slate-400 font-medium">Disponível para Windows, Android e Web</span>
+          </div>
+        </div>
+        <button onclick="App.closeInstallAppModal()" class="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 py-1">
+        <!-- Windows PC (.exe) -->
+        <a href="/download/NovaFlix.exe" download="NovaFlix.exe" class="w-full p-3 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-700 hover:border-slate-500 flex items-center justify-between transition group text-left">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-lg border border-sky-500/30 group-hover:scale-105 transition">
+              <i class="fa-brands fa-windows"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white group-hover:text-sky-300 transition">Windows PC (.exe)</div>
+              <div class="text-[10px] text-slate-400">Instalador nativo para Windows 10/11 (64-bit)</div>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-sky-600/30 text-sky-300 text-[10px] font-bold border border-sky-500/30 flex items-center gap-1">
+            <i class="fa-solid fa-download"></i> Baixar
+          </span>
+        </a>
+
+        <!-- Android (.apk) -->
+        <a href="/download/NovaFlix.apk" download="NovaFlix.apk" class="w-full p-3 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-700 hover:border-slate-500 flex items-center justify-between transition group text-left">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg border border-emerald-500/30 group-hover:scale-105 transition">
+              <i class="fa-brands fa-android"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white group-hover:text-emerald-300 transition">Android (.apk)</div>
+              <div class="text-[10px] text-slate-400">Instalação direta para Celular & TV Android</div>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-emerald-600/30 text-emerald-300 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1">
+            <i class="fa-solid fa-download"></i> Baixar
+          </span>
+        </a>
+
+        <!-- Atalho PWA / Navegador -->
+        <button type="button" onclick="App.triggerPwaPrompt('button')" class="w-full p-3 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-700 hover:border-slate-500 flex items-center justify-between transition group text-left cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg border border-amber-500/30 group-hover:scale-105 transition">
+              <i class="fa-solid fa-mobile-screen"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white group-hover:text-amber-300 transition">Atalho no Navegador (PWA)</div>
+              <div class="text-[10px] text-slate-400">Instalar direto na tela inicial sem ocupar espaço</div>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-amber-600/30 text-amber-300 text-[10px] font-bold border border-amber-500/30 flex items-center gap-1">
+            <i class="fa-solid fa-plus"></i> Instalar
+          </span>
+        </button>
+      </div>
+
+      <!-- GUIA PASSO A PASSO PWA (MOBILE / NAVEGADOR) -->
+      <div id="pwa-guide-box" class="p-3.5 rounded-xl bg-gradient-to-br from-amber-950/40 via-slate-900 to-black border border-amber-500/40 space-y-2.5 transition-all">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs border border-amber-500/30">
+              <i class="fa-solid fa-mobile-screen-button"></i>
+            </span>
+            <span class="text-xs font-bold text-white">Como Instalar pelo Navegador (Sem Arquivos)</span>
+          </div>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">100% Fluido</span>
+        </div>
+
+        <div class="text-[11px] text-slate-300 space-y-2 pt-1">
+          <!-- Android Chrome -->
+          <div class="p-2.5 rounded-lg bg-black/60 border border-slate-800 space-y-1">
+            <div class="font-bold text-emerald-400 flex items-center gap-1.5 text-xs">
+              <i class="fa-brands fa-android"></i> No Celular Android (Google Chrome):
+            </div>
+            <ol class="list-decimal list-inside space-y-1 text-slate-300 text-[11px] pl-1">
+              <li>Toque no menu <strong>⋮ (3 pontinhos)</strong> no topo direito do Chrome.</li>
+              <li>Toque em <strong>"Adicionar à tela inicial"</strong> ou <strong>"Instalar aplicativo"</strong>.</li>
+              <li>Toque em <strong>Adicionar</strong>. O ícone do NovaFlix aparecerá na sua tela inicial!</li>
+            </ol>
+          </div>
+
+          <!-- iPhone Safari -->
+          <div class="p-2.5 rounded-lg bg-black/60 border border-slate-800 space-y-1">
+            <div class="font-bold text-sky-400 flex items-center gap-1.5 text-xs">
+              <i class="fa-brands fa-apple"></i> No iPhone (Safari):
+            </div>
+            <ol class="list-decimal list-inside space-y-1 text-slate-300 text-[11px] pl-1">
+              <li>Toque no botão <strong>Compartilhar <i class="fa-solid fa-arrow-up-from-bracket text-xs"></i></strong> (barra inferior do Safari).</li>
+              <li>Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong>.</li>
+              <li>Toque em <strong>Adicionar</strong> no canto superior direito.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="text-[10px] text-slate-400 flex items-center gap-1.5 pt-1">
+          <i class="fa-solid fa-bolt text-amber-400"></i>
+          <span>O PWA abre em tela cheia sem barras, usa a GPU do aparelho e atualiza sozinho!</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==============================================================================
+       ADMIN ENCRYPTED MESSAGE POPUP & COMANDO REMOTO
+       ============================================================================== -->
+  <div id="admin-message-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in">
+    <div class="relative w-full max-w-md bg-[#161616] border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-full bg-netflix-red/20 text-netflix-red flex items-center justify-center text-sm border border-netflix-red/30">
+            <i class="fa-solid fa-shield-halved"></i>
+          </span>
+          <div>
+            <h3 id="admin-msg-title" class="text-sm font-bold text-white">Mensagem da Administração</h3>
+            <span class="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
+              <i class="fa-solid fa-lock text-[9px]"></i> Criptografia AES-256 Ponta a Ponta
+            </span>
+          </div>
+        </div>
+        <button onclick="App.dismissAdminMessage()" class="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <div id="admin-msg-body" class="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap py-1">
+        <!-- Message content rendered here -->
+      </div>
+
+      <!-- Preview de Mídia / Banner de Recomendação (opcional) -->
+      <div id="admin-interactive-media-preview" class="hidden rounded-xl overflow-hidden border border-slate-800 bg-black/60 p-2 flex items-center gap-3">
+        <img id="admin-interactive-media-img" src="" class="w-12 h-16 object-cover rounded-lg shrink-0">
+        <div class="min-w-0">
+          <div id="admin-interactive-media-title" class="text-xs font-bold text-white truncate"></div>
+          <div id="admin-interactive-media-category" class="text-[10px] text-slate-400 truncate"></div>
+        </div>
+      </div>
+
+      <!-- Botão Padrão de Fechamento -->
+      <div id="admin-msg-default-footer" class="pt-2 flex justify-end">
+        <button onclick="App.dismissAdminMessage()" class="px-5 py-2 rounded-xl bg-netflix-red hover:bg-netflix-hoverRed text-white text-xs font-bold transition shadow-lg">
+          Entendido
+        </button>
+      </div>
+
+      <!-- Botões de Ação Interativa (Pop-up com Ação) -->
+      <div id="admin-interactive-action-container" class="hidden pt-2 flex items-center justify-between gap-3">
+        <button type="button" onclick="App.dismissAdminMessage()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition">
+          Agora Não
+        </button>
+        <button type="button" id="admin-interactive-action-btn" onclick="App.executeAdminInteractiveAction()" class="flex-1 px-5 py-2.5 rounded-xl bg-netflix-red hover:bg-rose-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-netflix-red/30 cursor-pointer">
+          <i class="fa-solid fa-play text-xs"></i>
+          <span id="admin-interactive-btn-label">Assistir Agora</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ==============================================================================
+       SETUP IP MODAL (CONFIGURAÇÃO DINÂMICA DE IP DO SERVIDOR ADM / VPS)
+       ============================================================================== -->
+  <div id="setup-ip-modal" class="hidden fixed inset-0 z-[10001] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
+    <div class="relative w-full max-w-md bg-[#181818] border border-netflix-red/40 rounded-2xl p-6 shadow-2xl space-y-4 animate-slide-up">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-netflix-red/20 text-netflix-red flex items-center justify-center text-lg font-bold border border-netflix-red/30">
+            <i class="fa-solid fa-server"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Conectar ao Servidor NovaFlix</h3>
+            <p class="text-xs text-slate-400">Aplicativo Oficial • Conexão VPS / Streaming</p>
+          </div>
+        </div>
+        <button id="setup-ip-close-btn" onclick="App.closeSetupIpModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300 leading-relaxed">
+        Digite o <strong>IP ou Domínio</strong> da sua VPS ou servidor NovaFlix para carregar seu catálogo completo de canais, filmes e séries:
+      </p>
+
+      <form onsubmit="App.saveServerIp(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-200 mb-1.5">Endereço do Servidor (IP ou Domínio):</label>
+          <input type="text" id="setup-server-ip-input" required placeholder="Ex: http://123.45.67.89:3000 ou https://meuflix.com"
+            class="w-full px-3.5 py-2.5 bg-[#121212] border border-slate-700 focus:border-netflix-red rounded-xl text-white text-xs font-mono focus:outline-none">
+          <span class="text-[10px] text-slate-500 mt-1 block">Insira o IP da sua VPS com a porta (ex: <code>http://123.45.67.89:3000</code>)</span>
+        </div>
+
+        <div id="setup-ip-status-msg" class="hidden p-2.5 rounded-lg text-xs font-semibold"></div>
+
+        <div class="pt-2 flex items-center justify-end gap-2">
+          <button type="button" onclick="App.testServerConnection()" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
+            <i class="fa-solid fa-plug text-xs mr-1"></i> Testar Conexão
+          </button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-netflix-red hover:bg-netflix-hoverRed text-white text-xs font-bold transition shadow-lg cursor-pointer">
+            Conectar e Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==============================================================================
+       PRE-PLAY DONATION MODAL (UX NÃO-INTRUSIVA & GAMIFICAÇÃO DINÂMICA)
+       ============================================================================== -->
+  <div id="doacao-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in" onclick="if(event.target === this) App.dismissDoacaoModal()">
+    <div class="relative w-full max-w-md bg-[#161616] border border-netflix-red/40 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-slide-up" onclick="event.stopPropagation()">
+      <!-- Close / Dismiss button (X / Não quero ajudar agora) -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <span class="w-9 h-9 rounded-2xl bg-netflix-red/20 text-netflix-red flex items-center justify-center text-sm border border-netflix-red/30">
+            <i class="fa-solid fa-heart"></i>
+          </span>
+          <div>
+            <h3 class="text-sm font-bold text-white">Contribuição NovaFlix</h3>
+            <p class="text-[10px] text-slate-400">Ajude a manter a infraestrutura de alta velocidade</p>
+          </div>
+        </div>
+        <button onclick="App.dismissDoacaoModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer" title="Não quero ajudar agora">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2">
+        <h4 class="text-base font-black text-white leading-tight">
+          Você assistiu bastante hoje! 🍿
+        </h4>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Nossa rede de servidores e conexões de alta velocidade depende de doações voluntárias da nossa comunidade para continuar no ar sem anúncios abusivos.
+        </p>
+      </div>
+
+      <!-- Gamified Values Buttons Grid -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-bold text-slate-200">Escolha um valor para contribuir:</span>
+          <span id="doacao-donor-badge" class="text-[10px] font-bold text-amber-400"></span>
+        </div>
+        <div id="doacao-values-grid" class="grid grid-cols-3 gap-2">
+          <!-- Dynamically populated: 3 higher values (R$30, R$50, R$100) or 5 lower values (R$5, R$10, R$15, R$20, R$25) -->
+        </div>
+      </div>
+
+      <!-- Pix / QR Code Simulated Payment View (hidden until a value is clicked) -->
+      <div id="doacao-pix-view" class="hidden p-4 rounded-2xl bg-[#121212] border border-slate-800 space-y-3 animate-fade-in text-center">
+        <div class="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1.5">
+          <i class="fa-brands fa-pix"></i>
+          <span>Pagamento Instantâneo via PIX</span>
+        </div>
+        <div class="text-lg font-black text-white font-mono" id="doacao-selected-amount-text">R$ 30,00</div>
+        <div class="w-36 h-36 mx-auto bg-white p-2 rounded-xl flex items-center justify-center shadow-lg">
+          <i class="fa-solid fa-qrcode text-black text-7xl"></i>
+        </div>
+        <p class="text-[10px] text-slate-400">Escaneie o QR Code no seu aplicativo bancário ou use a chave simulada:</p>
+        <div class="flex items-center gap-2">
+          <input type="text" readonly id="doacao-pix-code" value="00020126580014br.gov.bcb.pix0136novaflix-contrib@suporte.com52040000" class="flex-1 bg-black/60 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[10px] font-mono text-slate-300 truncate select-all">
+          <button onclick="App.copyDoacaoPix()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition">Copiar</button>
+        </div>
+        <button onclick="App.confirmDoacaoComplete()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-check"></i>
+          <span>Já Realizei a Doação (Liberar Imediatamente)</span>
+        </button>
+      </div>
+
+      <!-- Prominent Dismiss Button (X / Não quero ajudar agora - Fecha, zera timer e libera vídeo) -->
+      <div class="pt-1">
+        <button onclick="App.dismissDoacaoModal()" id="btn-doacao-dismiss" class="w-full py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer border border-white/5">
+          <i class="fa-solid fa-xmark text-xs text-slate-400"></i>
+          <span>Não quero ajudar agora (Assistir Vídeo)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION SCRIPTS -->
+  <script src="m3u-parser.js?v=7"></script>
+  <script src="settings-manager.js?v=7"></script>
+  <script src="player.js?v=7"></script>
+  <script src="app.js?v=7"></script>
+</body>
+</html>
+

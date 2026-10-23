@@ -1,0 +1,93 @@
+{
+  "users": [
+    {
+      "id": "usr_admin",
+      "username": "admin",
+      "passwordHash": "00892bca498d44d291e19edb11a8a8a68939f7db87fa0e39ff87627819c8aa15bf9d3d0f6c8715462727d9d74389eaef17fdc46ed6c77335fef5978cfb4c1de5",
+      "salt": "a1b2c3d4e5f67890",
+      "role": "superadmin",
+      "name": "Administrador Principal",
+      "createdAt": "2026-10-18T19:22:02.936Z"
+    }
+  ],
+  "config": {
+    "mainDomain": "http://200.195.157.174",
+    "mirrorDomains": [
+      "http://127.0.0.1:3000"
+    ],
+    "playlists": {
+      "primary": "http://cdn888.ovh/get.php?username=Jm5Udq&password=BQ5TxN&type=m3u_plus&output=m3u8",
+      "backup1": "http://cdn888.ovh/get.php?username=Jm5Udq&password=BQ5TxN&type=m3u_plus&output=m3u8",
+      "backup2": "",
+      "live_list_url": "http://cdn888.ovh/get.php?username=Jm5Udq&password=BQ5TxN&type=m3u_plus&output=m3u8",
+      "vod_list_url": "http://cdn888.ovh/get.php?username=Jm5Udq&password=BQ5TxN&type=m3u_plus&output=m3u8"
+    },
+    "activePlaylist": "primary",
+    "updatedAt": "2026-10-22T18:29:01.520Z"
+  },
+  "settings": {
+    "streamMode": "proxy",
+    "syncInterval": "24h",
+    "telegram": {
+      "enabled": false,
+      "botToken": "",
+      "chatId": ""
+    },
+    "rateLimit": {
+      "maxRequests": 5,
+      "windowMinutes": 10
+    },
+    "corsAllowedDomains": "*"
+  },
+  "feedbacks": [
+    {
+      "id": "fb_mvegqyiyghf2",
+      "timestamp": "2026-10-18T23:35:20.650Z",
+      "tipo": "reclamacao",
+      "mensagem": "Teste",
+      "ip": "200.195.157.174",
+      "status": "read"
+    },
+    {
+      "id": "fb_mve7xfo2k3pz",
+      "timestamp": "2026-10-18T19:28:26.258Z",
+      "tipo": "sugestao",
+      "mensagem": "Por favor, adicionar novos episódios de anime!",
+      "ip": "::1",
+      "status": "read"
+    }
+  ],
+  "healthChecks": {
+    "lastChecked": "2026-10-18T22:01:36.718Z",
+    "mainDomain": {
+      "status": "online",
+      "statusCode": 200,
+      "latency": 10
+    },
+    "primary": {
+      "status": "online",
+      "statusCode": 200,
+      "latency": 7284
+    },
+    "backup1": {
+      "status": "empty",
+      "statusCode": null,
+      "latency": null
+    },
+    "backup2": {
+      "status": "empty",
+      "statusCode": null,
+      "latency": null
+    }
+  },
+  "paymentGateway": {
+    "apiKey": "",
+    "updatedAt": "2026-10-20T13:01:05.796Z"
+  },
+  "userOverrides": {},
+  "playlists": {
+    "live_list_url": "http://cdn888.ovh/get.php?username=Jm5Udq&password=BQ5TxN&type=m3u_plus&output=ts",
+    "vod_list_url": "http://cdn888.ovh/get.php?username=Jm5Udq&password=BQ5TxN&type=m3u_plus&output=m3u8",
+    "activePlaylist": "primary"
+  }
+}

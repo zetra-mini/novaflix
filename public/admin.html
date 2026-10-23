@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Administrativo & Anti-Queda | NovaFlix</title>
+  
+  <!-- Tailwind CSS & FontAwesome -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              red: '#E50914',
+              hover: '#B80710',
+              dark: '#141414',
+              card: '#1F1F1F',
+              border: '#2E2E2E'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #141414; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+    .nav-item.active {
+      background-color: rgba(229, 9, 20, 0.15);
+      border-left: 3px solid #E50914;
+      color: #FFFFFF;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body class="bg-[#0f0f0f] text-slate-200 font-sans min-h-screen flex flex-col antialiased select-none">
+
+  <!-- =========================================================================
+       TELA DE LOGIN (QUANDO NÃO AUTENTICADO)
+       ========================================================================= -->
+  <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0a0a]/95 backdrop-blur-md p-4">
+    <div class="w-full max-w-md bg-[#181818] border border-slate-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+      <div class="absolute -top-12 -right-12 w-40 h-40 bg-brand-red/10 rounded-full blur-3xl pointer-events-none"></div>
+      
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center gap-2 mb-3">
+          <span class="text-3xl font-black text-brand-red tracking-wider">NOVA<span class="text-white">FLIX</span></span>
+          <span class="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-brand-red/20 text-brand-red border border-brand-red/30">ADM</span>
+        </div>
+        <h2 class="text-xl font-bold text-white">Central de Comando</h2>
+        <p class="text-xs text-slate-400 mt-1">Acesso restrito para administradores</p>
+      </div>
+
+      <div id="login-error-alert" class="hidden mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+        <i class="fa-solid fa-triangle-exclamation flex-shrink-0"></i>
+        <span id="login-error-text">Credenciais inválidas</span>
+      </div>
+
+      <form id="login-form" onsubmit="AdminApp.handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1.5">Usuário</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+              <i class="fa-solid fa-user text-xs"></i>
+            </span>
+            <input type="text" id="login-username" required autocomplete="username" value="admin"
+              class="w-full pl-9 pr-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition placeholder-slate-600"
+              placeholder="Digite seu usuário">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1.5">Senha</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+              <i class="fa-solid fa-lock text-xs"></i>
+            </span>
+            <input type="password" id="login-password" required autocomplete="current-password" value="admin123"
+              class="w-full pl-9 pr-10 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition placeholder-slate-600"
+              placeholder="Digite sua senha">
+            <button type="button" onclick="AdminApp.togglePasswordVisibility('login-password')" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-white transition">
+              <i class="fa-regular fa-eye text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" id="login-submit-btn" class="w-full py-3 bg-brand-red hover:bg-brand-hover text-white rounded-xl text-sm font-bold tracking-wide transition shadow-lg shadow-brand-red/30 flex items-center justify-center gap-2 mt-2">
+          <span>Entrar no Painel</span>
+          <i class="fa-solid fa-arrow-right text-xs"></i>
+        </button>
+      </form>
+
+      <div class="mt-6 text-center text-[11px] text-slate-500">
+        Credencial inicial padrão: <span class="text-slate-300 font-mono">admin</span> / <span class="text-slate-300 font-mono">admin123</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       PAINEL ADMINISTRATIVO (LAYOUT PRINCIPAL)
+       ========================================================================= -->
+  <div id="admin-layout" class="hidden min-h-screen flex">
+    
+    <!-- BACKDROP MOBILE PARA FECHAR O MENU -->
+    <div id="admin-sidebar-backdrop" onclick="AdminApp.toggleSidebar(false)" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-30 md:hidden"></div>
+
+    <!-- BARRA LATERAL (SIDEBAR RESPONSIVA) -->
+    <aside id="admin-sidebar" class="fixed md:static inset-y-0 left-0 w-64 bg-[#141414] border-r border-slate-800/80 flex flex-col flex-shrink-0 z-40 transition-transform duration-300 -translate-x-full md:translate-x-0 shadow-2xl md:shadow-none">
+      <!-- Topo Brand -->
+      <div class="h-16 px-6 flex items-center justify-between border-b border-slate-800/80">
+        <div class="flex items-center gap-2">
+          <span class="text-xl font-black text-brand-red tracking-wider">NOVA<span class="text-white">FLIX</span></span>
+          <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-red/20 text-brand-red border border-brand-red/30">ADM</span>
+        </div>
+        <button onclick="AdminApp.toggleSidebar(false)" class="md:hidden text-slate-400 hover:text-white p-2">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Menu de Navegação -->
+      <nav class="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+        <button onclick="AdminApp.showScreen('dashboard')" id="nav-btn-dashboard" class="nav-item active w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i class="fa-solid fa-gauge-high w-4 text-center"></i>
+          <span>Dashboard Geral</span>
+        </button>
+
+        <button onclick="AdminApp.showScreen('domains')" id="nav-btn-domains" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i class="fa-solid fa-shield-halved w-4 text-center"></i>
+          <span>Anti-Queda & Domínios</span>
+        </button>
+
+        <button onclick="AdminApp.showScreen('playlists')" id="nav-btn-playlists" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i class="fa-solid fa-server w-4 text-center"></i>
+          <span>Listas IPTV (Failover)</span>
+        </button>
+
+        <button onclick="AdminApp.showScreen('messages')" id="nav-btn-messages" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-envelope w-4 text-center"></i>
+            <span>Central de Feedback</span>
+          </div>
+          <span id="sidebar-unread-badge" class="hidden px-1.5 py-0.2 rounded-full bg-brand-red text-white text-[10px] font-bold">0</span>
+        </button>
+
+        <button onclick="AdminApp.showScreen('sessions')" id="nav-btn-sessions" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-users-viewfinder w-4 text-center"></i>
+            <span>Usuários Online</span>
+          </div>
+          <span id="nav-sessions-count" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">0</span>
+        </button>
+
+        <button onclick="AdminApp.showScreen('logs')" id="nav-btn-logs" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-terminal w-4 text-center text-amber-400"></i>
+            <span>Logs do Sistema</span>
+          </div>
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Monitoramento Ativo"></span>
+        </button>
+
+        <button onclick="AdminApp.showScreen('settings')" id="nav-btn-settings" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i class="fa-solid fa-sliders w-4 text-center"></i>
+          <span>Alertas & Segurança</span>
+        </button>
+
+        <button onclick="AdminApp.showScreen('payment-gateway')" id="nav-btn-payment-gateway" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-credit-card w-4 text-center text-emerald-400"></i>
+            <span>Gateway de Pagamento</span>
+          </div>
+          <span id="sidebar-gateway-pill" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700">OFF</span>
+        </button>
+
+        <button onclick="AdminApp.showScreen('users-control')" id="nav-btn-users-control" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-address-card w-4 text-center text-purple-400"></i>
+            <span>Controle de Usuários</span>
+          </div>
+          <span id="nav-users-control-count" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">0</span>
+        </button>
+
+        <button onclick="AdminApp.showScreen('users')" id="nav-btn-users" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i class="fa-solid fa-users-gear w-4 text-center"></i>
+          <span>Usuários Administradores</span>
+        </button>
+      </nav>
+
+      <!-- Rodapé Sidebar -->
+      <div class="p-3 border-t border-slate-800/80">
+        <div class="bg-[#1a1a1a] p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-8 h-8 rounded-full bg-brand-red/20 text-brand-red flex items-center justify-center font-bold text-xs flex-shrink-0">
+              <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <div class="min-w-0">
+              <div id="sidebar-user-name" class="text-xs font-bold text-white truncate">admin</div>
+              <div id="sidebar-user-role" class="text-[10px] text-emerald-400 truncate">Super Admin</div>
+            </div>
+          </div>
+          <button onclick="AdminApp.logout()" title="Encerrar Sessão" class="text-slate-500 hover:text-rose-400 transition p-1.5">
+            <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL DE CONTEÚDO -->
+    <main class="flex-1 flex flex-col min-w-0 bg-[#0d0d0d] overflow-y-auto">
+      
+      <!-- Topbar Header -->
+      <header class="h-16 px-4 md:px-8 border-b border-slate-800/80 bg-[#141414]/90 backdrop-blur flex items-center justify-between sticky top-0 z-20">
+        <div class="flex items-center gap-2.5 sm:gap-4 min-w-0">
+          <button onclick="AdminApp.toggleSidebar(true)" id="admin-hamburger-btn" class="md:hidden w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition border border-slate-800 shrink-0 cursor-pointer" title="Abrir Menu">
+            <i class="fa-solid fa-bars text-sm"></i>
+          </button>
+
+          <h1 id="screen-title" class="text-sm sm:text-base font-bold text-white flex items-center gap-2 truncate">
+            <i class="fa-solid fa-gauge-high text-brand-red text-sm"></i>
+            <span>Dashboard Geral</span>
+          </h1>
+          <span class="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full shrink-0">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>API Online</span>
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+          <a href="/" target="_blank" class="text-xs text-slate-300 hover:text-white px-3 sm:px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-slate-700/80 transition flex items-center gap-1.5 sm:gap-2">
+            <i class="fa-solid fa-play text-[10px] text-brand-red"></i>
+            <span class="hidden sm:inline">Acessar Player</span>
+          </a>
+
+          <button onclick="AdminApp.refreshCurrentScreen()" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-slate-700/80 text-slate-300 hover:text-white transition flex items-center justify-center text-xs cursor-pointer" title="Atualizar Dados">
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- CORPO DAS TELAS -->
+      <div class="p-4 sm:p-8 max-w-7xl w-full mx-auto space-y-6 sm:space-y-8 flex-1 pb-24 md:pb-8">
+
+        <!-- =========================================================================
+             TELA 1: DASHBOARD
+             ========================================================================= -->
+        <section id="screen-dashboard" class="space-y-6">
+          <!-- Linha de Status de Domínio & Health Checks -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- Domínio Principal -->
+            <div class="p-5 rounded-2xl bg-[#141414] border border-slate-800 relative overflow-hidden">
+              <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+                <span class="font-semibold">Domínio Oficial</span>
+                <span id="dash-domain-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">ONLINE</span>
+              </div>
+              <div id="dash-main-domain-text" class="text-sm font-bold text-white truncate font-mono">http://localhost:3000</div>
+              <div class="text-[11px] text-slate-500 mt-2 flex items-center gap-2">
+                <span>Latência:</span>
+                <span id="dash-domain-latency" class="text-slate-300 font-mono">12ms</span>
+                <span class="text-slate-600">•</span>
+                <span class="text-emerald-400">HTTP 200</span>
+              </div>
+            </div>
+
+            <!-- Lista Primária -->
+            <div class="p-5 rounded-2xl bg-[#141414] border border-slate-800">
+              <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+                <span class="font-semibold">Lista Primária</span>
+                <span id="dash-p1-status" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">200 OK</span>
+              </div>
+              <div id="dash-p1-latency" class="text-2xl font-black text-white font-mono">-- ms</div>
+              <div class="text-[11px] text-slate-500 mt-2 truncate">Fonte ativa de canais e VOD</div>
+            </div>
+
+            <!-- Lista Backup 1 -->
+            <div class="p-5 rounded-2xl bg-[#141414] border border-slate-800">
+              <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+                <span class="font-semibold">Lista Backup 1</span>
+                <span id="dash-b1-status" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400">STANDBY</span>
+              </div>
+              <div id="dash-b1-latency" class="text-2xl font-black text-white font-mono">-- ms</div>
+              <div class="text-[11px] text-slate-500 mt-2 truncate">Failover automático nível 1</div>
+            </div>
+
+            <!-- Lista Backup 2 -->
+            <div class="p-5 rounded-2xl bg-[#141414] border border-slate-800">
+              <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+                <span class="font-semibold">Lista Backup 2</span>
+                <span id="dash-b2-status" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400">STANDBY</span>
+              </div>
+              <div id="dash-b2-latency" class="text-2xl font-black text-white font-mono">-- ms</div>
+              <div class="text-[11px] text-slate-500 mt-2 truncate">Failover de emergência nível 2</div>
+            </div>
+          </div>
+
+          <!-- Métricas de Usuários & Feedback -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div onclick="AdminApp.showScreen('sessions')" class="p-5 rounded-2xl bg-gradient-to-br from-emerald-950/30 to-[#141414] border border-emerald-500/30 cursor-pointer hover:border-emerald-400 transition group">
+              <div class="flex items-center justify-between text-xs text-emerald-400 font-semibold mb-1">
+                <span>Usuários Online Agora</span>
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              </div>
+              <div id="dash-count-sessions" class="text-3xl font-black text-white group-hover:text-emerald-400 transition">0</div>
+              <p class="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+                <span>Conectados ao player</span>
+                <span class="text-emerald-400 font-bold text-[10px]">Ver Todos <i class="fa-solid fa-chevron-right text-[8px]"></i></span>
+              </p>
+            </div>
+
+            <div class="p-5 rounded-2xl bg-gradient-to-br from-rose-950/30 to-[#141414] border border-rose-900/30">
+              <div class="flex items-center justify-between text-xs text-rose-400 font-semibold mb-1">
+                <span>Reclamações Hoje</span>
+                <i class="fa-solid fa-triangle-exclamation"></i>
+              </div>
+              <div id="dash-count-reclamacoes" class="text-3xl font-black text-white">0</div>
+              <p class="text-[11px] text-slate-400 mt-1">Canais off ou falhas reportadas</p>
+            </div>
+
+            <div class="p-5 rounded-2xl bg-gradient-to-br from-sky-950/30 to-[#141414] border border-sky-900/30">
+              <div class="flex items-center justify-between text-xs text-sky-400 font-semibold mb-1">
+                <span>Sugestões Recebidas</span>
+                <i class="fa-solid fa-lightbulb"></i>
+              </div>
+              <div id="dash-count-sugestoes" class="text-3xl font-black text-white">0</div>
+              <p class="text-[11px] text-slate-400 mt-1">Pedidos de novos títulos e canais</p>
+            </div>
+
+            <div class="p-5 rounded-2xl bg-gradient-to-br from-amber-950/30 to-[#141414] border border-amber-900/30">
+              <div class="flex items-center justify-between text-xs text-amber-400 font-semibold mb-1">
+                <span>Total de Mensagens</span>
+                <i class="fa-solid fa-inbox"></i>
+              </div>
+              <div id="dash-count-total" class="text-3xl font-black text-white">0</div>
+              <p class="text-[11px] text-slate-400 mt-1">Interações acumuladas dos usuários</p>
+            </div>
+          </div>
+
+          <!-- Ação Rápida de Verificação -->
+          <div class="p-5 rounded-2xl bg-[#141414] border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h4 class="text-sm font-bold text-white">Verificação de Integridade Manual</h4>
+              <p class="text-xs text-slate-400 mt-0.5">Executa um teste de ping e status HTTP imediato no domínio e nas 3 listas IPTV.</p>
+            </div>
+            <button onclick="AdminApp.triggerHealthCheck()" id="btn-health-check" class="px-5 py-2.5 rounded-xl bg-brand-red hover:bg-brand-hover text-white text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-brand-red/20 flex-shrink-0">
+              <i class="fa-solid fa-stethoscope"></i>
+              <span>Testar Links Agora</span>
+            </button>
+          </div>
+
+          <!-- Últimas Mensagens Recebidas -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-comments text-brand-red"></i>
+                <span>Mensagens Recentes de Usuários</span>
+              </h3>
+              <button onclick="AdminApp.showScreen('messages')" class="text-xs text-brand-red hover:underline font-semibold">Ver Todas</button>
+            </div>
+            <div id="dash-recent-messages-list" class="divide-y divide-slate-800/80">
+              <div class="py-6 text-center text-xs text-slate-500">Nenhuma mensagem recebida ainda.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================================
+             TELA 2: GESTÃO DE REDIRECIONAMENTO E DOMÍNIOS (ANTI-QUEDA)
+             ========================================================================= -->
+        <section id="screen-domains" class="hidden space-y-6">
+          <!-- CARD PRINCIPAL: DOMÍNIO & VINCULAÇÃO DE APLICATIVOS -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-5">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="w-8 h-8 rounded-lg bg-brand-red/20 text-brand-red flex items-center justify-center text-sm border border-brand-red/30">
+                    <i class="fa-solid fa-network-wired"></i>
+                  </span>
+                  <h3 class="text-base font-bold text-white">Domínio Oficial & Vinculação aos Aplicativos</h3>
+                </div>
+                <p class="text-xs text-slate-400 mt-1 max-w-2xl">
+                  Cadastre o Domínio público ou IP da sua VPS (ex: <code class="text-slate-300">https://meuplayer.com</code> ou <code class="text-slate-300">http://192.168.1.6:3000</code>). Ao salvar, ele vincula imediatamente o endereço aos instaladores nativos (.apk Android / .exe Windows) e gera os links diretos para download e compartilhamento.
+                </p>
+              </div>
+              <div class="text-right">
+                <span id="app-config-sync-badge" class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-mono text-slate-300">
+                  <i class="fa-solid fa-sync fa-spin text-slate-500 mr-1"></i> Carregando sincronização...
+                </span>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="block text-xs font-semibold text-slate-300">URL do Domínio Oficial ou IP da VPS</label>
+              <div class="flex flex-col sm:flex-row gap-2.5">
+                <input type="url" id="domain-main-input" oninput="AdminApp.onDomainInputChange(this.value)" placeholder="https://meuplayer.com ou http://SEU-IP:3000"
+                  class="flex-1 px-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-brand-red font-mono">
+                <button type="button" id="btn-autodetect-vps" onclick="AdminApp.autoDetectVPS()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 text-xs font-bold rounded-xl transition shadow flex items-center justify-center gap-2 shrink-0 cursor-pointer" title="Puxar e vincular automaticamente o IP público da VPS">
+                  <i class="fa-solid fa-bolt text-amber-400"></i>
+                  <span>Puxar IP da VPS</span>
+                </button>
+                <button onclick="AdminApp.saveDomainSettings()" class="px-6 py-2.5 bg-brand-red hover:bg-brand-hover text-white text-xs font-bold rounded-xl transition shadow-lg shadow-brand-red/20 flex items-center justify-center gap-2 shrink-0 cursor-pointer">
+                  <i class="fa-solid fa-floppy-disk"></i>
+                  <span>Salvar e Vincular aos Apps</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- CARDS DE DOWNLOAD DIRETO E COMPARTILHAMENTO -->
+            <div class="pt-2">
+              <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-download text-brand-red"></i>
+                <span>Links de Download Direto Gerados (Prontos para Enviar aos Clientes)</span>
+              </h4>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- CARD ANDROID (.apk) -->
+                <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3 flex flex-col justify-between">
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm border border-emerald-500/30">
+                          <i class="fa-brands fa-android"></i>
+                        </span>
+                        <span class="text-xs font-bold text-white">Android (.apk)</span>
+                      </div>
+                      <span id="app-status-badge-apk" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                        Verificando...
+                      </span>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Instalador para celulares e TVs Android.</p>
+                    <input type="text" id="app-link-apk" readonly onclick="this.select()"
+                      class="w-full px-2.5 py-1.5 bg-[#121212] border border-slate-800 rounded-lg text-slate-300 font-mono text-[11px] focus:outline-none select-all">
+                  </div>
+                  <div class="flex items-center gap-2 pt-1">
+                    <button onclick="AdminApp.copyAppDownloadLink('app-link-apk', this)" class="flex-1 py-1.5 px-3 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-medium border border-slate-700 transition flex items-center justify-center gap-1.5">
+                      <i class="fa-regular fa-copy"></i>
+                      <span>Copiar Link</span>
+                    </button>
+                    <a id="app-download-btn-apk" href="/download/NovaFlix.apk" target="_blank" class="py-1.5 px-3 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 text-xs font-medium border border-emerald-500/30 transition flex items-center gap-1">
+                      <i class="fa-solid fa-arrow-down"></i>
+                      <span>Baixar</span>
+                    </a>
+                  </div>
+                </div>
+
+                <!-- CARD WINDOWS (.exe) -->
+                <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3 flex flex-col justify-between">
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-sm border border-sky-500/30">
+                          <i class="fa-brands fa-windows"></i>
+                        </span>
+                        <span class="text-xs font-bold text-white">Windows (.exe)</span>
+                      </div>
+                      <span id="app-status-badge-exe" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                        Verificando...
+                      </span>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Instalador nativo para Windows 10 e 11.</p>
+                    <input type="text" id="app-link-exe" readonly onclick="this.select()"
+                      class="w-full px-2.5 py-1.5 bg-[#121212] border border-slate-800 rounded-lg text-slate-300 font-mono text-[11px] focus:outline-none select-all">
+                  </div>
+                  <div class="flex items-center gap-2 pt-1">
+                    <button onclick="AdminApp.copyAppDownloadLink('app-link-exe', this)" class="flex-1 py-1.5 px-3 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-medium border border-slate-700 transition flex items-center justify-center gap-1.5">
+                      <i class="fa-regular fa-copy"></i>
+                      <span>Copiar Link</span>
+                    </button>
+                    <a id="app-download-btn-exe" href="/download/NovaFlix.exe" target="_blank" class="py-1.5 px-3 rounded-lg bg-sky-600/30 hover:bg-sky-600/50 text-sky-300 text-xs font-medium border border-sky-500/30 transition flex items-center gap-1">
+                      <i class="fa-solid fa-arrow-down"></i>
+                      <span>Baixar</span>
+                    </a>
+                  </div>
+                </div>
+
+                <!-- CARD WEB / PWA -->
+                <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3 flex flex-col justify-between">
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-sm border border-purple-500/30">
+                          <i class="fa-solid fa-globe"></i>
+                        </span>
+                        <span class="text-xs font-bold text-white">Acesso Web & PWA</span>
+                      </div>
+                      <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                        <i class="fa-solid fa-check"></i> Online
+                      </span>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Acesso instantâneo via navegador e Smart TVs.</p>
+                    <input type="text" id="app-link-web" readonly onclick="this.select()"
+                      class="w-full px-2.5 py-1.5 bg-[#121212] border border-slate-800 rounded-lg text-slate-300 font-mono text-[11px] focus:outline-none select-all">
+                  </div>
+                  <div class="flex items-center gap-2 pt-1">
+                    <button onclick="AdminApp.copyAppDownloadLink('app-link-web', this)" class="flex-1 py-1.5 px-3 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-medium border border-slate-700 transition flex items-center justify-center gap-1.5">
+                      <i class="fa-regular fa-copy"></i>
+                      <span>Copiar Link</span>
+                    </button>
+                    <a id="app-download-btn-web" href="/" target="_blank" class="py-1.5 px-3 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 text-xs font-medium border border-purple-500/30 transition flex items-center gap-1">
+                      <i class="fa-solid fa-up-right-from-square"></i>
+                      <span>Abrir</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- INFORMAÇÃO TÉCNICA: CONSUMO DE HARDWARE -->
+            <div class="p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-500/30 flex items-start gap-3">
+              <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-sm shrink-0 mt-0.5">
+                <i class="fa-solid fa-microchip"></i>
+              </div>
+              <div class="text-xs text-slate-300 leading-relaxed">
+                <span class="font-bold text-white block mb-0.5">💡 Consumo de Hardware no Dispositivo Cliente (Client-Side Decoding):</span>
+                Quando o aplicativo é instalado no Android ou Windows, <strong>100% da decodificação de vídeo e renderização dos frames ocorre no hardware local do usuário (GPU/placa de vídeo e processador do celular/PC)</strong>. Sua VPS atua apenas entregando o stream e as APIs, sem gastar processamento com transcodificação pesada, permitindo que uma VPS básica atenda muitos usuários com máxima estabilidade.
+              </div>
+            </div>
+          </div>
+
+          <!-- CARD DE AUTOMAÇÃO 1-CLICK INFRA SETUP (NGINX + SSL CERTBOT) -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm border border-emerald-500/30">
+                  <i class="fa-solid fa-server"></i>
+                </span>
+                <div>
+                  <h3 class="text-base font-bold text-white">Automação 1-Click Infra Setup (Nginx + SSL Certbot)</h3>
+                  <p class="text-xs text-slate-400 mt-0.5">Instala Nginx, configura o Proxy Reverso e emite certificado SSL Let's Encrypt automaticamente na VPS.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Banner Obrigatório de Verificação de DNS -->
+            <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-3">
+              <i class="fa-solid fa-triangle-exclamation text-amber-400 text-lg shrink-0"></i>
+              <div>
+                <strong class="font-bold text-amber-200">ATENÇÃO: O domínio JÁ DEVE apontar para o IP público desta VPS (Registro DNS Tipo A) antes de iniciar a configuração SSL.</strong>
+                <p class="mt-0.5 text-amber-300/90 leading-relaxed">
+                  Crie um registro do tipo <strong>A</strong> no Cloudflare ou painel de DNS apontando para o IP da sua VPS. Se o DNS não estiver apontado, o Certbot não conseguirá emitir o certificado SSL.
+                </p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="sm:col-span-2 space-y-1.5">
+                <label class="block text-xs font-semibold text-slate-300">Domínio da Aplicação (ex: app.meudominio.com)</label>
+                <input type="text" id="infra-setup-domain-input" placeholder="app.seuservidor.com"
+                  class="w-full px-4 py-2.5 bg-[#121212] border border-slate-700 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-emerald-500">
+              </div>
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-slate-300">Porta Interna Node.js</label>
+                <input type="number" id="infra-setup-port-input" value="3000" placeholder="3000"
+                  class="w-full px-4 py-2.5 bg-[#121212] border border-slate-700 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-emerald-500">
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-1">
+              <span class="text-[11px] text-slate-500">Executa silenciosamente <code>scripts/setup-infra.sh</code> via sudo na VPS.</span>
+              <button type="button" id="btn-run-infra-setup" onclick="AdminApp.runInfraSetup()"
+                class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center gap-2 cursor-pointer">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span id="btn-run-infra-setup-text">Configurar Nginx + SSL Automático</span>
+              </button>
+            </div>
+
+            <!-- CONSOLE VIRTUAL EM TEMPO REAL -->
+            <div id="infra-terminal-box" class="space-y-2 hidden">
+              <div class="flex items-center justify-between text-[11px] text-slate-400">
+                <span class="flex items-center gap-1.5 font-mono">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+                  Console Virtual de Instalação (VPS Terminal Output):
+                </span>
+                <span id="infra-terminal-status" class="text-slate-400">Executando...</span>
+              </div>
+              <pre id="infra-terminal-console" class="p-4 rounded-xl bg-black border border-slate-800 text-emerald-400 font-mono text-[11px] leading-relaxed overflow-x-auto max-h-64 whitespace-pre-wrap select-text"></pre>
+            </div>
+          </div>
+
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-base font-bold text-white">Tabela de Espelhos (Domínios de Backup)</h3>
+                <p class="text-xs text-slate-400 mt-1">Domínios alternativos consultados pelo player em ordem de prioridade caso o principal seja bloqueado.</p>
+              </div>
+              <button onclick="AdminApp.addMirrorDomainRow()" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-slate-700 text-xs font-semibold text-white transition flex items-center gap-2">
+                <i class="fa-solid fa-plus text-brand-red"></i>
+                <span>Adicionar Espelho</span>
+              </button>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400 font-semibold">
+                    <th class="py-3 px-4 w-20">Prioridade</th>
+                    <th class="py-3 px-4">URL do Espelho</th>
+                    <th class="py-3 px-4 w-24 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="mirror-domains-tbody" class="divide-y divide-slate-800/80">
+                  <!-- Linhas renderizadas via JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="pt-4 border-t border-slate-800/80 flex items-center justify-end">
+              <button onclick="AdminApp.saveDomainSettings()" class="px-6 py-2.5 bg-brand-red hover:bg-brand-hover text-white text-xs font-bold rounded-xl transition shadow-lg shadow-brand-red/20 flex items-center gap-2">
+                <i class="fa-solid fa-check"></i>
+                <span>Aplicar Alterações Anti-Queda</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- GUIA DIDÁTICO DE APONTAMENTO DNS & CLOUDFLARE (ANTI-QUEDA) -->
+          <div class="p-6 rounded-2xl bg-gradient-to-br from-indigo-950/20 to-[#141414] border border-indigo-500/30 space-y-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-lg">
+                <i class="fa-solid fa-network-wired"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white">Como Funciona o Apontamento de Domínios e DNS (Guia Prático)</h3>
+                <p class="text-xs text-slate-400">Instruções simples para apontar seu domínio principal e espelhos reservas sem expor seu IP real.</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div class="bg-[#121212] p-4 rounded-xl border border-slate-800 space-y-2">
+                <div class="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                  <span class="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-[10px]">1</span>
+                  <span>Domínio Oficial (Tipo A)</span>
+                </div>
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                  No painel do seu DNS (ex: Cloudflare), crie um registro <strong>Tipo A</strong> com nome <code>@</code> apontando para o <strong>IP do seu servidor VPS</strong>.
+                </p>
+                <div class="bg-black/50 p-2 rounded text-[10px] font-mono text-slate-300">
+                  Tipo: A | Nome: @ | Destino: SEU_IP_VPS
+                </div>
+              </div>
+
+              <div class="bg-[#121212] p-4 rounded-xl border border-slate-800 space-y-2">
+                <div class="flex items-center gap-2 text-xs font-bold text-sky-400">
+                  <span class="w-5 h-5 rounded-full bg-sky-500/20 flex items-center justify-center text-[10px]">2</span>
+                  <span>Espelhos de Backup (CNAME)</span>
+                </div>
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                  Crie subdomínios ou outros domínios como <strong>CNAME</strong> apontando para o seu domínio principal (ex: <code>espelho1</code> apontando para <code>seusite.com</code>).
+                </p>
+                <div class="bg-black/50 p-2 rounded text-[10px] font-mono text-slate-300">
+                  Tipo: CNAME | Nome: espelho1 | Destino: seusite.com
+                </div>
+              </div>
+
+              <div class="bg-[#121212] p-4 rounded-xl border border-slate-800 space-y-2">
+                <div class="flex items-center gap-2 text-xs font-bold text-amber-400">
+                  <span class="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-[10px]">3</span>
+                  <span>Proxy Ativo (Nuvem Laranja)</span>
+                </div>
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                  Mantenha o <strong>Proxy ativado</strong> (nuvem laranja no Cloudflare). Isso esconde seu IP real da internet e fornece SSL (HTTPS) automático e proteção DDoS.
+                </p>
+                <div class="bg-black/50 p-2 rounded text-[10px] font-mono text-emerald-400">
+                  Status Proxy: Ativado (Proteção Total)
+                </div>
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-black/40 border border-white/5 text-xs text-slate-300 flex items-start gap-3">
+              <i class="fa-solid fa-circle-info text-indigo-400 text-sm mt-0.5"></i>
+              <div class="space-y-1">
+                <p class="font-semibold text-white">Como o Player executa a Contingência Automática?</p>
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                  Ao abrir o player, ele consulta a API <code>/api/config</code>. Se a operadora do cliente tentar bloquear o domínio oficial por DNS, o script do player tenta os espelhos cadastrados na tabela acima em sequência. Ao trocar de domínio no formulário e clicar em <em>"Aplicar Alterações"</em>, todos os players conectados migram instantaneamente!
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================================
+             TELA 3: GESTÃO DE LISTAS IPTV (FAILOVER)
+             ========================================================================= -->
+        <section id="screen-playlists" class="hidden space-y-6">
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-6">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-black uppercase tracking-wider">HLS M3U8 Nativo</span>
+                <h3 class="text-base font-bold text-white">Fonte Principal de Transmissão (Lista Única HLS M3U8)</h3>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">O sistema utiliza uma única lista HLS M3U8 unificada para todos os Canais Ao Vivo, Filmes e Séries com aceleração via Edge CDN.</p>
+            </div>
+
+            <!-- CARD DA LISTA PRINCIPAL M3U8 -->
+            <div class="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-slate-900 to-black border border-emerald-500/30 space-y-3">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-bold text-white flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>URL da Lista Principal (HLS M3U8)</span>
+                  <span class="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono rounded font-bold">output=m3u8</span>
+                </label>
+                <div class="flex items-center gap-2">
+                  <span id="pl-primary-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400">Online</span>
+                  <label class="inline-flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+                    <input type="radio" name="active_playlist_choice" value="primary" checked class="text-brand-red focus:ring-brand-red">
+                    <span>Ativa</span>
+                  </label>
+                </div>
+              </div>
+              <input type="url" id="pl-primary-input" placeholder="http://cdn888.ovh/get.php?username=...&password=...&type=m3u_plus&output=m3u8"
+                class="w-full px-4 py-2.5 bg-[#121212] border border-slate-700 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-emerald-500">
+              <p class="text-[11px] text-slate-400">Lista HLS M3U8 única e unificada. Sincroniza canais ao vivo, filmes 2026 e séries de streaming com alta fidelidade e zero travamentos.</p>
+            </div>
+
+            <!-- Lista Backup 1 -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-bold text-white flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                  <span>Lista de Backup 1 (Failover Nível 1)</span>
+                </label>
+                <div class="flex items-center gap-2">
+                  <span id="pl-backup1-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400">Não Verificado</span>
+                  <label class="inline-flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+                    <input type="radio" name="active_playlist_choice" value="backup1" class="text-brand-red focus:ring-brand-red">
+                    <span>Ativar Como Principal</span>
+                  </label>
+                </div>
+              </div>
+              <input type="url" id="pl-backup1-input" placeholder="http://backup1.servidor.com/..."
+                class="w-full px-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-brand-red">
+            </div>
+
+            <!-- Lista Backup 2 -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-bold text-white flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+                  <span>Lista de Backup 2 (Failover de Emergência Nível 2)</span>
+                </label>
+                <div class="flex items-center gap-2">
+                  <span id="pl-backup2-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400">Não Verificado</span>
+                  <label class="inline-flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+                    <input type="radio" name="active_playlist_choice" value="backup2" class="text-brand-red focus:ring-brand-red">
+                    <span>Ativar Como Principal</span>
+                  </label>
+                </div>
+              </div>
+              <input type="url" id="pl-backup2-input" placeholder="http://backup2.servidor.com/..."
+                class="w-full px-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-brand-red">
+            </div>
+
+            <div class="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <button onclick="AdminApp.triggerHealthCheck()" class="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white text-xs font-bold rounded-xl transition border border-slate-700 flex items-center gap-2 cursor-pointer">
+                  <i class="fa-solid fa-stethoscope text-emerald-400"></i>
+                  <span>Testar Links Agora</span>
+                </button>
+
+                <button onclick="AdminApp.syncCatalogNow()" id="btn-sync-catalog" class="px-4 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-bold rounded-xl transition border border-indigo-500/40 flex items-center gap-2 cursor-pointer">
+                  <i class="fa-solid fa-arrows-rotate"></i>
+                  <span id="btn-sync-catalog-text">Sincronizar Catálogo Agora</span>
+                </button>
+              </div>
+
+              <button onclick="AdminApp.savePlaylists()" class="px-6 py-2.5 bg-brand-red hover:bg-brand-hover text-white text-xs font-bold rounded-xl transition shadow-lg shadow-brand-red/20 flex items-center justify-center gap-2 cursor-pointer">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Salvar Configuração de Listas</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================================
+             TELA 4: CENTRAL DE MENSAGENS (FEEDBACK & SAC)
+             ========================================================================= -->
+        <section id="screen-messages" class="hidden space-y-6">
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 class="text-base font-bold text-white">Central de Mensagens e Feedback</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Mensagens enviadas diretamente pelos usuários pelo botão de feedback do player.</p>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <input type="text" id="msg-search-input" oninput="AdminApp.loadMessages(1)" placeholder="Buscar mensagem..."
+                  class="px-3.5 py-1.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-brand-red w-48">
+                
+                <select id="msg-filter-tipo" onchange="AdminApp.loadMessages(1)"
+                  class="px-3 py-1.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-brand-red">
+                  <option value="">Todos os Tipos</option>
+                  <option value="reclamacao">Reclamações</option>
+                  <option value="sugestao">Sugestões</option>
+                  <option value="observacao">Observações</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400 font-semibold">
+                    <th class="py-3 px-4 w-36">Data / Hora</th>
+                    <th class="py-3 px-4 w-32">Tipo</th>
+                    <th class="py-3 px-4">Mensagem</th>
+                    <th class="py-3 px-4 w-28">IP</th>
+                    <th class="py-3 px-4 w-24">Status</th>
+                    <th class="py-3 px-4 w-24 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="messages-tbody" class="divide-y divide-slate-800/80">
+                  <!-- Preenchido via JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Paginação -->
+            <div id="messages-pagination" class="flex items-center justify-between pt-4 border-t border-slate-800/80 text-xs text-slate-400">
+              <span id="messages-page-info">Página 1 de 1</span>
+              <div class="flex items-center gap-1.5">
+                <button onclick="AdminApp.changeMessagePage(-1)" id="msg-prev-btn" class="px-3 py-1 rounded bg-white/5 border border-slate-800 hover:bg-white/10 transition text-white">Anterior</button>
+                <button onclick="AdminApp.changeMessagePage(1)" id="msg-next-btn" class="px-3 py-1 rounded bg-white/5 border border-slate-800 hover:bg-white/10 transition text-white">Próxima</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================================
+             TELA 5: CONFIGURAÇÕES DE API E ALERTAS
+             ========================================================================= -->
+        <section id="screen-settings" class="hidden space-y-6">
+          
+          <!-- Notificações Telegram -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                  <i class="fa-brands fa-telegram text-sky-400"></i>
+                  <span>Notificações Automáticas no Telegram</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-1">Receba alertas em tempo real no seu celular ou grupo do Telegram a cada feedback enviado.</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="settings-telegram-enabled" class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-red"></div>
+              </label>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">Bot Token do Telegram</label>
+                <input type="text" id="settings-telegram-token" placeholder="123456789:ABCdefGHIjkl..."
+                  class="w-full px-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-brand-red">
+                <p class="text-[10px] text-slate-500 mt-1">Gerado através do @BotFather no Telegram.</p>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">Chat ID / ID do Canal</label>
+                <input type="text" id="settings-telegram-chatid" placeholder="-100123456789 ou seu ID"
+                  class="w-full px-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-brand-red">
+                <p class="text-[10px] text-slate-500 mt-1">Obtido pelo @userinfobot ou ID do grupo.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Motor de Streaming & Otimização de VPS -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-bolt text-amber-400"></i>
+                  <span>Motor de Streaming & Otimização de VPS</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-1">Configuração de aceleração de tráfego de vídeo e intervalo de atualização de listas para evitar sobrecarga na VPS.</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">Modo de Transmissão (Streaming Engine)</label>
+                <select id="settings-stream-mode" class="w-full px-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-brand-red">
+                  <option value="direct">⚡ Decodificação Direta / CDN (Recomendado para VPS 1GB - Zero Consumo de Banda & Sem Travamentos)</option>
+                  <option value="proxy">🛡️ Proxy VPS Criptografado (Todo tráfego passa pela VPS - Requer 4GB+ RAM)</option>
+                </select>
+                <p class="text-[10px] text-slate-500 mt-1">O modo <strong>Decodificação Direta</strong> conecta os clientes direto à CDN do provedor, eliminando o congelamento aos 30 segundos.</p>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">Frequência de Sincronização de Listas IPTV</label>
+                <select id="settings-sync-interval" class="w-full px-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-brand-red">
+                  <option value="24h">A cada 24 Horas (Recomendado para VPS de 1GB)</option>
+                  <option value="12h">A cada 12 Horas</option>
+                  <option value="manual">Apenas Manual (Evita consumo de rede da VPS)</option>
+                  <option value="30m">A cada 30 Minutos (Pode sobrecarregar VPS pequenas)</option>
+                </select>
+                <p class="text-[10px] text-slate-500 mt-1">Evita downloads repetitivos de arquivos M3U pesados que causam timeout (ETIMEDOUT) e travam vídeos ativos.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rate Limiting & CORS -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-5">
+            <h3 class="text-base font-bold text-white">Controle de Acesso & Proteção da API</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">Rate Limit de Feedback (Máx. Requisições por IP)</label>
+                <div class="flex items-center gap-2">
+                  <input type="number" id="settings-ratelimit-max" min="1" max="100" value="5"
+                    class="w-24 px-3 py-2 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-brand-red text-center">
+                  <span class="text-xs text-slate-400">mensagens a cada</span>
+                  <input type="number" id="settings-ratelimit-window" min="1" max="60" value="10"
+                    class="w-24 px-3 py-2 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-brand-red text-center">
+                  <span class="text-xs text-slate-400">minutos</span>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">CORS (Domínios Autorizados a Consumir a API)</label>
+                <input type="text" id="settings-cors-domains" placeholder="* ou https://dominio1.com, https://dominio2.com"
+                  class="w-full px-4 py-2 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-brand-red">
+                <p class="text-[10px] text-slate-500 mt-1">Use <span class="text-slate-300">*</span> para liberar todos ou separe múltiplos domínios por vírgula.</p>
+              </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-800/80 flex justify-end">
+              <button onclick="AdminApp.saveTechnicalSettings()" class="px-6 py-2.5 bg-brand-red hover:bg-brand-hover text-white text-xs font-bold rounded-xl transition shadow-lg shadow-brand-red/20 flex items-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Salvar Configurações Técnicas</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================================
+             TELA 6: GESTÃO DE USUÁRIOS ADMINISTRADORES
+             ========================================================================= -->
+        <section id="screen-users" class="hidden space-y-6">
+          
+          <!-- Alterar meus dados (usuário logado) -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-4">
+            <h3 class="text-base font-bold text-white">Minhas Credenciais de Administrador</h3>
+            <p class="text-xs text-slate-400">Altere seu próprio nome de usuário ou defina uma nova senha segura para o seu login.</p>
+
+            <form onsubmit="AdminApp.updateMyProfile(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">Nome de Usuário</label>
+                <input type="text" id="my-username-input" required
+                  class="w-full px-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-brand-red">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">Nova Senha (opcional)</label>
+                <input type="password" id="my-newpassword-input" placeholder="Deixe em branco para manter"
+                  class="w-full px-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-brand-red">
+              </div>
+
+              <div class="flex items-end">
+                <button type="submit" class="w-full py-2.5 bg-brand-red hover:bg-brand-hover text-white text-xs font-bold rounded-xl transition shadow-lg shadow-brand-red/20 flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-user-check"></i>
+                  <span>Salvar Meus Dados</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Adicionar Novo Administrador -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-4">
+            <h3 class="text-base font-bold text-white">Cadastrar Novo Administrador</h3>
+            <p class="text-xs text-slate-400">Adicione mais pessoas com acesso ao painel de controle e monitoramento.</p>
+
+            <form onsubmit="AdminApp.addNewUser(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">Usuário de Login</label>
+                <input type="text" id="new-user-username" required placeholder="ex: suporte_joao"
+                  class="w-full px-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-brand-red">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">Nome Completo</label>
+                <input type="text" id="new-user-name" placeholder="ex: João Silva"
+                  class="w-full px-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-brand-red">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">Senha de Acesso</label>
+                <input type="password" id="new-user-password" required placeholder="mínimo 6 dígitos"
+                  class="w-full px-4 py-2.5 bg-[#121212] border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-brand-red">
+              </div>
+
+              <div class="flex items-end">
+                <button type="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-user-plus"></i>
+                  <span>Criar Administrador</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Lista de Administradores Existentes -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-4">
+            <h3 class="text-base font-bold text-white">Administradores Cadastrados</h3>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400 font-semibold">
+                    <th class="py-3 px-4">Usuário</th>
+                    <th class="py-3 px-4">Nome</th>
+                    <th class="py-3 px-4">Perfil</th>
+                    <th class="py-3 px-4">Criado em</th>
+                    <th class="py-3 px-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="users-tbody" class="divide-y divide-slate-800/80">
+                  <!-- Linhas renderizadas via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================================
+             TELA 7: MONITORAMENTO DE ACESSOS EM TEMPO REAL (QUEM ESTÁ ACESSANDO)
+             ========================================================================= -->
+        <section id="screen-sessions" class="hidden space-y-6">
+          <!-- Header da Tela com Auto-Refresh Indicator -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-base font-bold text-white">Monitoramento de Acessos em Tempo Real</h3>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span>AO VIVO</span>
+                </span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">
+                Visualização detalhada de quem está assistindo o player agora: endereço IP, dispositivo, tempo de conexão e título reproduzido. Dados protegidos exclusivamente para administradores.
+              </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="AdminApp.openRemoteControlModal('ALL', 'Todos os Espectadores Conectados')" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-lg shadow-sky-600/20 cursor-pointer">
+                <i class="fa-solid fa-gamepad"></i>
+                <span>Comando Global</span>
+              </button>
+              <button onclick="AdminApp.openSendMessageModal('ALL', 'Todos os Espectadores Conectados')" class="px-4 py-2 bg-netflix-red hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-lg shadow-netflix-red/20 cursor-pointer">
+                <i class="fa-solid fa-bullhorn"></i>
+                <span>Transmitir Mensagem</span>
+              </button>
+              <button onclick="AdminApp.loadSessionsData()" class="px-4 py-2 bg-white/5 hover:bg-white/10 border border-slate-700 text-white text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Atualizar</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Cards de Resumo Rápido -->
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div class="p-4 rounded-xl bg-[#141414] border border-slate-800">
+              <span class="text-xs text-slate-400 font-semibold">Total de Espectadores</span>
+              <div id="sess-total-count" class="text-2xl font-black text-white mt-1">0</div>
+              <span class="text-[10px] text-slate-500">Conectados agora</span>
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#141414] border border-slate-800">
+              <span class="text-xs text-emerald-400 font-semibold">Assistindo Canais Ao Vivo</span>
+              <div id="sess-live-count" class="text-2xl font-black text-emerald-400 mt-1">0</div>
+              <span class="text-[10px] text-slate-500">Transmissão contínua</span>
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#141414] border border-slate-800">
+              <span class="text-xs text-sky-400 font-semibold">Assistindo Filmes / Séries</span>
+              <div id="sess-vod-count" class="text-2xl font-black text-sky-400 mt-1">0</div>
+              <span class="text-[10px] text-slate-500">Catálogo sob demanda (VOD)</span>
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#141414] border border-slate-800">
+              <span class="text-xs text-purple-400 font-semibold">Tempo Médio Conectado</span>
+              <div id="sess-avg-time" class="text-2xl font-black text-purple-400 mt-1">0m</div>
+              <span class="text-[10px] text-slate-500">Duração da sessão</span>
+            </div>
+          </div>
+
+          <!-- Tabela de Sessões Ativas -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-users text-brand-red"></i>
+                <span>Sessões Ativas no Momento</span>
+              </h4>
+              <div class="text-[11px] text-slate-400">
+                <span class="text-emerald-400 font-mono font-bold" id="sess-table-counter">0 sessões</span> • Atualização automática a cada 8s
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400 font-semibold">
+                    <th class="py-3 px-4">Status</th>
+                    <th class="py-3 px-4">Usuário / Perfil</th>
+                    <th class="py-3 px-4">Localização & Provedor</th>
+                    <th class="py-3 px-4">IP & Dispositivo</th>
+                    <th class="py-3 px-4">Conteúdo em Reprodução</th>
+                    <th class="py-3 px-4">Tempo</th>
+                    <th class="py-3 px-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="sessions-tbody" class="divide-y divide-slate-800/80">
+                  <!-- Renderizado via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================================
+             TELA 7: TERMINAL DE LOGS DO SISTEMA EM TEMPO REAL
+             ========================================================================= -->
+        <section id="screen-logs" class="hidden space-y-6">
+          <!-- Topo da Tela com Ações -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-lg font-bold text-white">Terminal de Eventos & Logs</h3>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">Tempo Real</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Auditoria contínua de reproduções, segurança, failovers e requisições do sistema</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5">
+              <!-- Auto Refresh Toggle -->
+              <button onclick="AdminApp.toggleLogAutoRefresh()" id="btn-log-autorefresh" class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 transition flex items-center gap-1.5 cursor-pointer">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span id="log-autorefresh-label">Auto-Atualização (3s)</span>
+              </button>
+
+              <!-- Botão Atualizar Manual -->
+              <button onclick="AdminApp.loadLogsData()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer border border-slate-700">
+                <i class="fa-solid fa-arrows-rotate text-xs"></i>
+                <span>Atualizar</span>
+              </button>
+
+              <!-- Botão Exportar TXT -->
+              <button onclick="AdminApp.exportLogs()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer border border-slate-700">
+                <i class="fa-solid fa-download text-xs"></i>
+                <span>Exportar</span>
+              </button>
+
+              <!-- Botão Limpar Logs -->
+              <button onclick="AdminApp.clearLogs()" class="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+                <span>Limpar Logs</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Cards de Métricas de Logs -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="p-4 rounded-xl bg-[#141414] border border-slate-800">
+              <span class="text-xs text-slate-400 font-semibold">Total de Eventos</span>
+              <div id="log-stat-total" class="text-2xl font-black text-white mt-1">0</div>
+              <span class="text-[10px] text-slate-500">No buffer de auditoria</span>
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#141414] border border-slate-800">
+              <span class="text-xs text-emerald-400 font-semibold">Transmissões (Streams)</span>
+              <div id="log-stat-streams" class="text-2xl font-black text-emerald-400 mt-1">0</div>
+              <span class="text-[10px] text-slate-500">Conexões HLS / TS / MP4</span>
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#141414] border border-slate-800">
+              <span class="text-xs text-amber-400 font-semibold">Avisos & Alertas</span>
+              <div id="log-stat-warnings" class="text-2xl font-black text-amber-400 mt-1">0</div>
+              <span class="text-[10px] text-slate-500">Bloqueios & Tentativas</span>
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#141414] border border-slate-800">
+              <span class="text-xs text-rose-400 font-semibold">Erros Detectados</span>
+              <div id="log-stat-errors" class="text-2xl font-black text-rose-400 mt-1">0</div>
+              <span class="text-[10px] text-slate-500">Falhas HTTP / Conexão</span>
+            </div>
+          </div>
+
+          <!-- Barra de Filtros e Busca -->
+          <div class="p-4 rounded-xl bg-[#141414] border border-slate-800 flex flex-col md:flex-row items-center gap-3 justify-between">
+            <!-- Campo de Busca -->
+            <div class="relative w-full md:w-80">
+              <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+              <input type="text" id="log-search-input" oninput="AdminApp.filterLogsDebounced()" placeholder="Filtrar por mensagem, IP, rota..."
+                class="w-full pl-9 pr-4 py-2 bg-[#1a1a1a] border border-slate-700/80 rounded-xl text-white text-xs focus:outline-none focus:border-brand-red transition placeholder-slate-600">
+            </div>
+
+            <!-- Seletores de Nível e Categoria -->
+            <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              <select id="log-level-filter" onchange="AdminApp.loadLogsData()" class="px-3 py-2 bg-[#1a1a1a] border border-slate-700/80 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-brand-red cursor-pointer">
+                <option value="ALL">Todos os Níveis</option>
+                <option value="STREAM">STREAM (Streaming)</option>
+                <option value="INFO">INFO (Informativo)</option>
+                <option value="WARN">WARN (Avisos)</option>
+                <option value="ERROR">ERROR (Erros)</option>
+                <option value="AUTH">AUTH (Segurança)</option>
+              </select>
+
+              <select id="log-category-filter" onchange="AdminApp.loadLogsData()" class="px-3 py-2 bg-[#1a1a1a] border border-slate-700/80 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-brand-red cursor-pointer">
+                <option value="ALL">Todas as Categorias</option>
+                <option value="STREAMING">STREAMING</option>
+                <option value="SEGURANÇA">SEGURANÇA</option>
+                <option value="LISTAS">LISTAS & FAILOVER</option>
+                <option value="METADADOS">METADADOS & EPG</option>
+                <option value="FEEDBACK">FEEDBACK & SAC</option>
+                <option value="SISTEMA">SISTEMA</option>
+              </select>
+
+              <select id="log-limit-select" onchange="AdminApp.loadLogsData()" class="px-3 py-2 bg-[#1a1a1a] border border-slate-700/80 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-brand-red cursor-pointer">
+                <option value="100">100 eventos</option>
+                <option value="250">250 eventos</option>
+                <option value="500">500 eventos</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- TERMINAL CONSOLE EM PRETO PROFUNDO -->
+          <div class="rounded-2xl bg-[#0a0a0a] border border-slate-800 shadow-2xl overflow-hidden">
+            <!-- Barra Superior do Console -->
+            <div class="px-4 py-2.5 bg-[#121212] border-b border-slate-800/80 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-3 rounded-full bg-rose-500/80 inline-block"></span>
+                  <span class="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
+                  <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
+                </div>
+                <span class="text-[11px] font-mono text-slate-400 pl-2">novaflix@vps: ~/logs/live-audit.log</span>
+              </div>
+              <div class="text-[11px] font-mono text-slate-500">
+                <span id="log-counter-indicator" class="text-emerald-400">0 exibidos</span>
+              </div>
+            </div>
+
+            <!-- Conteúdo dos Logs -->
+            <div id="log-console-content" class="p-4 font-mono text-xs overflow-x-auto max-h-[580px] overflow-y-auto space-y-1.5 select-text">
+              <!-- Renderizado dinamicamente via JS -->
+              <div class="text-slate-500 py-6 text-center">Nenhum evento registrado no log até o momento.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================================
+             TELA 8: CONFIGURAÇÕES DE PAGAMENTO (GATEWAY DE DOAÇÃO)
+             ========================================================================= -->
+        <section id="screen-payment-gateway" class="hidden space-y-6">
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-base font-bold text-white">Configurações de Pagamento (Gateway)</h3>
+                <span id="gateway-status-pill" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                  <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                  <span>Verificando...</span>
+                </span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">
+                Gatilho mestre do sistema financeiro. A inserção da API Key ativa o motor de doações e o timeTracker no aplicativo para usuários adultos. Se estiver vazia, o aplicativo funciona como um player 100% gratuito e limpo.
+              </p>
+            </div>
+            <button onclick="AdminApp.loadPaymentGatewayData()" class="px-4 py-2 bg-white/5 hover:bg-white/10 border border-slate-700 text-white text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer">
+              <i class="fa-solid fa-rotate-right"></i>
+              <span>Atualizar</span>
+            </button>
+          </div>
+
+          <!-- Alert Explicativo -->
+          <div class="p-4 rounded-xl bg-emerald-950/20 border border-emerald-800/40 text-xs text-slate-300 space-y-2">
+            <div class="font-bold text-emerald-400 flex items-center gap-2">
+              <i class="fa-solid fa-circle-info"></i>
+              <span>Regra Mestre do Sistema Financeiro (ON / OFF)</span>
+            </div>
+            <ul class="list-disc list-inside space-y-1 text-slate-300 text-[11px] leading-relaxed">
+              <li><strong>API Key Vazia (OFF):</strong> O aplicativo desativa completamente o <code>timeTracker.js</code>, não rastreia tempo em background e <strong>nunca</strong> exibe pop-up de doação (Modo 100% Gratuito).</li>
+              <li><strong>API Key Preenchida (ON):</strong> O motor de doação é ativado de forma não-intrusiva (apenas pré-play antes de iniciar novos vídeos, sem nunca interromper o vídeo em andamento).</li>
+            </ul>
+          </div>
+
+          <!-- Formulário de API Key (Campo Único) -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 max-w-2xl space-y-5">
+            <form onsubmit="AdminApp.savePaymentGateway(event)" class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-200 mb-2">
+                  <i class="fa-solid fa-key text-emerald-400 mr-1.5"></i>
+                  API Key (Gateway):
+                </label>
+                <div class="relative">
+                  <input type="password" id="input-payment-api-key" placeholder="Insira a API Key do seu Gateway de Pagamento..."
+                    class="w-full px-4 py-3 bg-[#121212] border border-slate-700 focus:border-emerald-500 rounded-xl text-white text-xs font-mono tracking-wider focus:outline-none transition">
+                  <button type="button" onclick="AdminApp.toggleApiKeyVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 text-xs">
+                    <i id="btn-api-key-eye" class="fa-solid fa-eye"></i>
+                  </button>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1.5">Apenas este campo é necessário. Não cadastre carteiras ou dados adicionais.</p>
+              </div>
+
+              <div class="pt-2 flex items-center gap-3">
+                <button type="submit" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center gap-2 cursor-pointer">
+                  <i class="fa-solid fa-floppy-disk"></i>
+                  <span>Salvar Configuração</span>
+                </button>
+                <button type="button" onclick="AdminApp.clearPaymentApiKey()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition cursor-pointer">
+                  Desativar Gateway (Modo Grátis)
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- =========================================================================
+             TELA 9: CONTROLE DE USUÁRIOS VIA UUID (GESTÃO INDIVIDUAL & OVERRIDES)
+             ========================================================================= -->
+        <section id="screen-users-control" class="hidden space-y-6">
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-base font-bold text-white">Controle de Usuários</h3>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                  <i class="fa-solid fa-fingerprint text-[9px]"></i>
+                  <span>UUID Anônimo</span>
+                </span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">
+                Visualização detalhada dos perfis e dispositivos por UUID. Configure sobreposições individuais: abolir doação, forçar doação ou personalizar valores das doações.
+              </p>
+            </div>
+            <button onclick="AdminApp.loadUsersControlData()" class="px-4 py-2 bg-white/5 hover:bg-white/10 border border-slate-700 text-white text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer">
+              <i class="fa-solid fa-rotate-right"></i>
+              <span>Atualizar</span>
+            </button>
+          </div>
+
+          <!-- Cards de Resumo de Usuários -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="p-4 rounded-xl bg-[#141414] border border-slate-800">
+              <span class="text-xs text-slate-400 font-semibold">Total de Perfis Registrados</span>
+              <div id="ucontrol-stat-total" class="text-2xl font-black text-white mt-1">0</div>
+              <span class="text-[10px] text-slate-500">Com UUID único</span>
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#141414] border border-slate-800">
+              <span class="text-xs text-emerald-400 font-semibold">Usuários Online Agora</span>
+              <div id="ucontrol-stat-online" class="text-2xl font-black text-emerald-400 mt-1">0</div>
+              <span class="text-[10px] text-slate-500">Transmitindo</span>
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#141414] border border-slate-800">
+              <span class="text-xs text-amber-400 font-semibold">Doadores Recorrentes</span>
+              <div id="ucontrol-stat-donors" class="text-2xl font-black text-amber-400 mt-1">0</div>
+              <span class="text-[10px] text-slate-500">&gt; 0 doações</span>
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#141414] border border-slate-800">
+              <span class="text-xs text-purple-400 font-semibold">Overrides Ativos</span>
+              <div id="ucontrol-stat-overrides" class="text-2xl font-black text-purple-400 mt-1">0</div>
+              <span class="text-[10px] text-slate-500">Regras personalizadas</span>
+            </div>
+          </div>
+
+          <!-- Barra de Busca -->
+          <div class="p-4 rounded-xl bg-[#141414] border border-slate-800 flex items-center justify-between gap-4">
+            <div class="relative flex-1 max-w-md">
+              <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+              <input type="text" id="users-control-search-input" oninput="AdminApp.filterUsersControlDebounced()" placeholder="Buscar por Nome, UUID ou IP..."
+                class="w-full pl-9 pr-4 py-2 bg-[#1a1a1a] border border-slate-700/80 rounded-xl text-white text-xs focus:outline-none focus:border-purple-400 transition placeholder-slate-600">
+            </div>
+            <span id="users-control-counter" class="text-xs text-slate-400 font-mono">0 usuários listados</span>
+          </div>
+
+          <!-- Tabela de Usuários por UUID -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-4">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400 font-semibold">
+                    <th class="py-3 px-4">Status</th>
+                    <th class="py-3 px-4">Nome & Perfil</th>
+                    <th class="py-3 px-4">UUID (Device ID)</th>
+                    <th class="py-3 px-4">Dispositivo & IP</th>
+                    <th class="py-3 px-4 text-center">Doações</th>
+                    <th class="py-3 px-4">Regras / Overrides</th>
+                    <th class="py-3 px-4 text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="users-control-tbody" class="divide-y divide-slate-800/80">
+                  <!-- Linhas renderizadas dinamicamente via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- BARRA DE NAVEGAÇÃO INFERIOR PARA MOBILE (1 TOQUE RÁPIDO) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-[#141414]/95 backdrop-blur-md border-t border-slate-800 z-30 flex items-center justify-around py-2 px-1 text-[10px] text-slate-400 select-none shadow-2xl">
+      <button onclick="AdminApp.showScreen('dashboard')" class="flex flex-col items-center gap-1 p-1 hover:text-white transition flex-1 text-center cursor-pointer">
+        <i class="fa-solid fa-gauge-high text-sm"></i>
+        <span>Dashboard</span>
+      </button>
+      <button onclick="AdminApp.showScreen('sessions')" class="flex flex-col items-center gap-1 p-1 hover:text-white transition flex-1 text-center cursor-pointer">
+        <i class="fa-solid fa-users-viewfinder text-sm text-emerald-400"></i>
+        <span>Usuários</span>
+      </button>
+      <button onclick="AdminApp.showScreen('playlists')" class="flex flex-col items-center gap-1 p-1 hover:text-white transition flex-1 text-center cursor-pointer">
+        <i class="fa-solid fa-server text-sm text-sky-400"></i>
+        <span>Listas</span>
+      </button>
+      <button onclick="AdminApp.showScreen('logs')" class="flex flex-col items-center gap-1 p-1 hover:text-white transition flex-1 text-center cursor-pointer">
+        <i class="fa-solid fa-terminal text-sm text-amber-400"></i>
+        <span>Logs</span>
+      </button>
+      <button onclick="AdminApp.toggleSidebar(true)" class="flex flex-col items-center gap-1 p-1 hover:text-white transition flex-1 text-center cursor-pointer">
+        <i class="fa-solid fa-bars text-sm text-brand-red"></i>
+        <span>Mais</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- MODAL DE ENVIAR MENSAGEM CRIPTOGRAFADA PARA USUÁRIO OU TODOS -->
+  <div id="admin-send-msg-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in">
+    <div class="relative w-full max-w-lg bg-[#181818] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-netflix-red/20 text-netflix-red flex items-center justify-center text-lg font-black border border-netflix-red/30">
+            <i class="fa-solid fa-bullhorn"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Enviar Mensagem Criptografada</h3>
+            <p id="admin-send-msg-recipient" class="text-xs text-slate-400">Destinatário: Todos os Conectados</p>
+          </div>
+        </div>
+        <button onclick="AdminApp.closeSendMessageModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form onsubmit="AdminApp.submitSendMessage(event)" class="space-y-4">
+        <input type="hidden" id="admin-send-msg-target-id" value="ALL">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Título da Mensagem:</label>
+          <input type="text" id="admin-send-msg-title" value="Aviso da Administração" required class="w-full bg-[#121212] border border-slate-700 focus:border-netflix-red rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Tipo de Notificação:</label>
+          <select id="admin-send-msg-type" class="w-full bg-[#121212] border border-slate-700 focus:border-netflix-red rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition">
+            <option value="info">ℹ️ Informativo (Aviso Geral / Comunicado)</option>
+            <option value="warning">⚠️ Importante (Instabilidade / Manutenção Programada)</option>
+            <option value="urgent">🚨 Urgente (Troca de Servidor / Alerta Crítico)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Conteúdo da Mensagem:</label>
+          <textarea id="admin-send-msg-text" rows="4" required placeholder="Digite a mensagem que aparecerá na tela do usuário instantaneamente..." class="w-full p-3.5 bg-[#121212] border border-slate-700 focus:border-netflix-red rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none"></textarea>
+        </div>
+
+        <div class="p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 text-[11px] text-emerald-400 flex items-center gap-2">
+          <i class="fa-solid fa-lock text-sm"></i>
+          <span>A mensagem será criptografada com <strong>AES-256</strong> e descriptografada no dispositivo do usuário.</span>
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-2">
+          <button type="button" onclick="AdminApp.closeSendMessageModal()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition">
+            Cancelar
+          </button>
+          <button type="submit" id="admin-send-msg-submit-btn" class="px-5 py-2 rounded-xl bg-netflix-red hover:bg-rose-700 text-white text-xs font-bold transition shadow-lg flex items-center gap-2">
+            <span>Enviar Agora</span>
+            <i class="fa-solid fa-paper-plane text-xs"></i>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONTROLE REMOTO & TRANSMISSÃO DE CONTEÚDO (AES-256) -->
+  <div id="admin-remote-control-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 animate-fade-in">
+    <div class="relative w-full max-w-xl max-h-[92vh] overflow-y-auto bg-[#181818] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 sticky top-0 bg-[#181818] z-10">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-lg font-black border border-sky-500/30">
+            <i class="fa-solid fa-gamepad"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Controle Remoto de Transmissão</h3>
+            <p id="admin-remote-recipient" class="text-xs text-slate-400">Alvo: Lucas (Celular Android - 127.0.0.1)</p>
+          </div>
+        </div>
+        <button onclick="AdminApp.closeRemoteControlModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form onsubmit="AdminApp.submitRemoteCommand(event)" class="space-y-4">
+        <input type="hidden" id="admin-remote-target-id" value="">
+
+        <!-- Escolha da Ação / Modo de Comando -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Ação a Executar no Dispositivo:</label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="p-3 rounded-xl bg-[#121212] border border-slate-700 hover:border-slate-500 text-xs text-slate-200 cursor-pointer has-[:checked]:border-brand-red has-[:checked]:bg-brand-red/10 has-[:checked]:text-white transition flex items-center gap-2.5">
+              <input type="radio" name="remote_command_type" value="force_play" checked onchange="AdminApp.onRemoteActionTypeChange('force_play')" class="hidden">
+              <i class="fa-solid fa-play text-brand-red text-base shrink-0"></i>
+              <div>
+                <div class="font-bold">Reprodução Forçada</div>
+                <div class="text-[10px] text-slate-400">Abre e toca direto na tela do usuário</div>
+              </div>
+            </label>
+
+            <label class="p-3 rounded-xl bg-[#121212] border border-slate-700 hover:border-slate-500 text-xs text-slate-200 cursor-pointer has-[:checked]:border-sky-400 has-[:checked]:bg-sky-400/10 has-[:checked]:text-white transition flex items-center gap-2.5">
+              <input type="radio" name="remote_command_type" value="interactive_popup" onchange="AdminApp.onRemoteActionTypeChange('interactive_popup')" class="hidden">
+              <i class="fa-solid fa-comment-dots text-sky-400 text-base shrink-0"></i>
+              <div>
+                <div class="font-bold">Pop-up Interativo</div>
+                <div class="text-[10px] text-slate-400">Aviso na tela com botão para clicar</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Origem do Conteúdo (Catálogo vs Link Externo) -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Origem do Conteúdo:</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="p-2.5 rounded-xl bg-[#121212] border border-slate-700 hover:border-slate-500 text-xs text-slate-200 cursor-pointer has-[:checked]:border-emerald-400 has-[:checked]:bg-emerald-400/10 has-[:checked]:text-white transition flex items-center justify-center gap-2">
+              <input type="radio" name="remote_content_source" value="catalog" checked onchange="AdminApp.onRemoteSourceChange('catalog')" class="hidden">
+              <i class="fa-solid fa-film text-emerald-400 text-sm"></i>
+              <span class="font-bold">Catálogo IPTV</span>
+            </label>
+
+            <label class="p-2.5 rounded-xl bg-[#121212] border border-slate-700 hover:border-slate-500 text-xs text-slate-200 cursor-pointer has-[:checked]:border-purple-400 has-[:checked]:bg-purple-400/10 has-[:checked]:text-white transition flex items-center justify-center gap-2">
+              <input type="radio" name="remote_content_source" value="url" onchange="AdminApp.onRemoteSourceChange('url')" class="hidden">
+              <i class="fa-solid fa-link text-purple-400 text-sm"></i>
+              <span class="font-bold">Link Externo / URL</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Seção de Busca no Catálogo (Filmes, Séries e Filmes Adultos +18 para Abertura Forçada Fácil) -->
+        <div id="remote-catalog-section" class="space-y-2.5">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-semibold text-slate-300">Selecionar Conteúdo do Catálogo:</label>
+            <span class="text-[10px] text-emerald-400 font-semibold" id="remote-catalog-status-hint">Filmes, Séries &amp; +18 (1 clique para selecionar)</span>
+          </div>
+
+          <!-- Abas de Filtro Rápido (Todos, Filmes, Séries, Todos +18, Filmes +18 e Séries +18) -->
+          <div class="flex flex-wrap items-center gap-1.5 pb-1" id="remote-catalog-tabs">
+            <button type="button" onclick="AdminApp.setRemoteCatalogType('all')" data-remote-type="all" class="remote-cat-tab px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white/20 text-white transition shrink-0 cursor-pointer border border-white/30">
+              <span>Todos</span>
+            </button>
+            <button type="button" onclick="AdminApp.setRemoteCatalogType('movie_general')" data-remote-type="movie_general" class="remote-cat-tab px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 transition shrink-0 cursor-pointer border border-transparent">
+              <i class="fa-solid fa-film text-sky-400 mr-1"></i>
+              <span>Filmes</span>
+            </button>
+            <button type="button" onclick="AdminApp.setRemoteCatalogType('series')" data-remote-type="series" class="remote-cat-tab px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 transition shrink-0 cursor-pointer border border-transparent">
+              <i class="fa-solid fa-clapperboard text-purple-400 mr-1"></i>
+              <span>Séries</span>
+            </button>
+            <button type="button" onclick="AdminApp.setRemoteCatalogType('adult')" data-remote-type="adult" class="remote-cat-tab px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition shrink-0 cursor-pointer border border-rose-500/20">
+              <i class="fa-solid fa-fire text-rose-500 mr-1"></i>
+              <span>🔞 Todos +18</span>
+            </button>
+            <button type="button" onclick="AdminApp.setRemoteCatalogType('adult_movies')" data-remote-type="adult_movies" class="remote-cat-tab px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition shrink-0 cursor-pointer border border-rose-500/20">
+              <span>🔞 Filmes +18</span>
+            </button>
+            <button type="button" onclick="AdminApp.setRemoteCatalogType('adult_series')" data-remote-type="adult_series" class="remote-cat-tab px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition shrink-0 cursor-pointer border border-rose-500/20">
+              <span>🔞 Séries +18</span>
+            </button>
+          </div>
+
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-500 text-xs"></i>
+            <input type="text" id="remote-catalog-search-input" oninput="AdminApp.onRemoteCatalogSearch(this.value)" placeholder="Pesquisar filme ou série por nome ou categoria (ou escolha na lista abaixo)..." class="w-full bg-[#121212] border border-slate-700 focus:border-brand-red rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition">
+          </div>
+
+          <!-- Dropdown / Lista com Resultados da Busca -->
+          <div id="remote-search-results" onscroll="AdminApp.onRemoteResultsScroll(this)" class="hidden max-h-72 sm:max-h-80 overflow-y-auto rounded-xl bg-[#121212] border border-slate-700 divide-y divide-slate-800 text-xs">
+            <!-- Resultados inseridos via JS -->
+          </div>
+
+          <!-- Item Selecionado Preview -->
+          <div id="remote-selected-item-card" class="hidden p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 space-y-2.5">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <img id="remote-selected-img" src="" class="w-10 h-14 object-cover rounded-lg shrink-0">
+                <div class="min-w-0">
+                  <span id="remote-selected-badge" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">FILME</span>
+                  <div id="remote-selected-name" class="text-xs font-bold text-white truncate mt-1"></div>
+                  <div id="remote-selected-group" class="text-[10px] text-slate-400 truncate"></div>
+                </div>
+              </div>
+              <button type="button" onclick="AdminApp.clearSelectedRemoteItem()" class="text-slate-400 hover:text-rose-400 p-1.5 text-xs">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <!-- Seletor de Temporada e Episódio para Séries -->
+            <div id="remote-series-episode-picker" class="hidden pt-2 border-t border-emerald-500/20 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-1">Temporada:</label>
+                <select id="remote-series-season-select" onchange="AdminApp.onRemoteSeriesSeasonChange(this.value)" class="w-full bg-[#121212] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-400"></select>
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-1">Episódio:</label>
+                <select id="remote-series-episode-select" onchange="AdminApp.onRemoteSeriesEpisodeChange(this.value)" class="w-full bg-[#121212] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-400"></select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção de Link Externo / URL -->
+        <div id="remote-url-section" class="hidden space-y-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">URL / Link Direto da Transmissão:</label>
+            <input type="text" id="remote-url-input" placeholder="http://servidor:porta/live/usuario/senha/123.ts ou .m3u8 / .mp4" class="w-full bg-[#121212] border border-slate-700 focus:border-brand-red rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Nome / Título da Transmissão (Opcional):</label>
+            <input type="text" id="remote-url-title-input" placeholder="Ex: Transmissão Ao Vivo Especial" class="w-full bg-[#121212] border border-slate-700 focus:border-brand-red rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition">
+          </div>
+          <p class="text-[10px] text-slate-400 leading-relaxed">💡 Ao transmitir em modo "Reprodução Forçada", o player web do dispositivo abrirá e iniciará a reprodução imediata do stream sem travas e sem bloqueios.</p>
+        </div>
+
+        <!-- Opções Extras para Pop-up Interativo -->
+        <div id="remote-popup-custom-fields" class="hidden p-3.5 rounded-xl bg-sky-950/20 border border-sky-800/30 space-y-3">
+          <div class="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-sliders"></i>
+            <span>Personalização do Pop-up na Tela do Usuário:</span>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Título do Pop-up:</label>
+            <input type="text" id="remote-popup-title" value="🎬 Conteúdo Recomendado para Você" class="w-full bg-[#121212] border border-slate-700 focus:border-sky-400 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none">
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Mensagem Explicativa:</label>
+            <textarea id="remote-popup-msg" rows="2" placeholder="O Administrador liberou este conteúdo exclusivo para você. Aproveite!" class="w-full p-2 bg-[#121212] border border-slate-700 focus:border-sky-400 rounded-lg text-xs text-white focus:outline-none resize-none"></textarea>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Texto do Botão:</label>
+            <input type="text" id="remote-popup-btn-text" value="Assistir Agora" class="w-full bg-[#121212] border border-slate-700 focus:border-sky-400 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none">
+          </div>
+        </div>
+
+        <!-- Badge de Criptografia -->
+        <div class="p-2.5 rounded-xl bg-black/50 border border-slate-800 text-[11px] text-slate-400 flex items-center gap-2">
+          <i class="fa-solid fa-lock text-emerald-400 text-xs"></i>
+          <span>Comando transmitido com autenticação JWT e criptografia <strong>AES-256</strong>.</span>
+        </div>
+
+        <!-- Botões -->
+        <div class="pt-2 flex items-center justify-end gap-2">
+          <button type="button" onclick="AdminApp.closeRemoteControlModal()" class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition cursor-pointer">
+            Cancelar
+          </button>
+          <button type="submit" id="admin-remote-submit-btn" class="px-5 py-2.5 rounded-xl bg-brand-red hover:bg-rose-700 text-white text-xs font-bold transition shadow-lg flex items-center gap-2 cursor-pointer">
+            <i class="fa-solid fa-paper-plane text-xs"></i>
+            <span>Disparar Comando Remoto</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE GERENCIAMENTO DE OVERRIDES DO USUÁRIO (UUID) -->
+  <div id="admin-user-override-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in">
+    <div class="relative w-full max-w-lg bg-[#181818] border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-5 animate-slide-up">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-lg font-bold border border-purple-500/30">
+            <i class="fa-solid fa-sliders"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Sobreposições de Usuário (Overrides)</h3>
+            <p class="text-xs text-slate-400">Personalize o comportamento deste dispositivo específico</p>
+          </div>
+        </div>
+        <button onclick="AdminApp.closeUserOverrideModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Resumo do Usuário Alvo -->
+      <div class="p-3.5 rounded-xl bg-[#121212] border border-slate-800 space-y-1.5 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400 font-medium">Nome do Perfil:</span>
+          <span id="override-modal-user-name" class="font-bold text-white">Lucas</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400 font-medium">UUID do Dispositivo:</span>
+          <span id="override-modal-uuid" class="font-mono text-purple-400 text-[11px] select-all">uuid_abc123</span>
+        </div>
+      </div>
+
+      <form onsubmit="AdminApp.saveUserOverride(event)" class="space-y-4">
+        <input type="hidden" id="override-input-uuid" value="">
+
+        <!-- 1. Abolir Doação -->
+        <label class="flex items-start gap-3 p-3.5 rounded-xl bg-[#121212] border border-slate-800 hover:border-slate-700 cursor-pointer transition">
+          <input type="checkbox" id="override-check-abolish" class="mt-0.5 accent-brand-red w-4 h-4 cursor-pointer">
+          <div>
+            <div class="text-xs font-bold text-white flex items-center gap-1.5">
+              <i class="fa-solid fa-ban text-rose-400"></i>
+              <span>1. Abolir Doação</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Oculta o sistema de doação para este UUID para sempre. Nunca verá pop-up de contribuição.</div>
+          </div>
+        </label>
+
+        <!-- 2. Forçar Doação no Próximo Play -->
+        <label class="flex items-start gap-3 p-3.5 rounded-xl bg-[#121212] border border-slate-800 hover:border-slate-700 cursor-pointer transition">
+          <input type="checkbox" id="override-check-force" class="mt-0.5 accent-brand-red w-4 h-4 cursor-pointer">
+          <div>
+            <div class="text-xs font-bold text-white flex items-center gap-1.5">
+              <i class="fa-solid fa-bolt text-amber-400"></i>
+              <span>2. Forçar Doação no Próximo Conteúdo</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Ignora o gatilho de tempo invisível e força a exibição do modal de doação no próximo play deste UUID.</div>
+          </div>
+        </label>
+
+        <!-- 3. Customizar Valores Iniciais -->
+        <div class="p-3.5 rounded-xl bg-[#121212] border border-slate-800 space-y-1.5">
+          <label class="block text-xs font-bold text-white flex items-center gap-1.5">
+            <i class="fa-solid fa-coins text-sky-400"></i>
+            <span>3. Customizar Valores Iniciais (Primeira Doação):</span>
+          </label>
+          <input type="text" id="override-custom-initial" placeholder="Ex: 30, 50, 100 (valores padrão)"
+            class="w-full px-3.5 py-2 bg-[#181818] border border-slate-700 focus:border-purple-400 rounded-lg text-white text-xs font-mono focus:outline-none">
+          <p class="text-[10px] text-slate-500">Insira até 3 valores numéricos em R$ separados por vírgula. Deixe vazio para usar padrão.</p>
+        </div>
+
+        <!-- 4. Customizar Valores Recorrentes -->
+        <div class="p-3.5 rounded-xl bg-[#121212] border border-slate-800 space-y-1.5">
+          <label class="block text-xs font-bold text-white flex items-center gap-1.5">
+            <i class="fa-solid fa-repeat text-emerald-400"></i>
+            <span>4. Customizar Valores Recorrentes (&gt; 0 doações):</span>
+          </label>
+          <input type="text" id="override-custom-recurring" placeholder="Ex: 5, 10, 15, 20, 25 (valores padrão)"
+            class="w-full px-3.5 py-2 bg-[#181818] border border-slate-700 focus:border-purple-400 rounded-lg text-white text-xs font-mono focus:outline-none">
+          <p class="text-[10px] text-slate-500">Insira até 5 valores numéricos em R$ separados por vírgula. Deixe vazio para usar padrão.</p>
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-2">
+          <button type="button" onclick="AdminApp.closeUserOverrideModal()" class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition cursor-pointer">
+            Cancelar
+          </button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition shadow-lg shadow-purple-600/30 flex items-center gap-2 cursor-pointer">
+            <i class="fa-solid fa-floppy-disk text-xs"></i>
+            <span>Salvar Sobreposições</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CONTAINER GLOBAL DE NOTIFICAÇÕES (TOAST NOTIFICATIONS) -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-[99999] flex flex-col gap-2 pointer-events-none max-w-sm w-full px-4"></div>
+
+  <!-- APP LOGIC -->
+  <script src="/admin.js?v=7"></script>
+</body>
+</html>
