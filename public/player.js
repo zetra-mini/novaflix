@@ -72,14 +72,14 @@ class VideoPlayer {
     let stallWatchdog = null;
     let consecutiveStalls = 0;
 
-    this.video.addEventListener('waiting', () => {
+    const handleStallOrWaiting = () => {
       this.emitState('buffering');
       if (stallWatchdog) clearTimeout(stallWatchdog);
       stallWatchdog = setTimeout(() => {
         if (!this.video || this.video.ended || this.video.paused) return;
 
         // Se ainda estiver carregando o cabeçalho inicial (moov atom) antes de iniciar a reprodução,
-        // NUNCA aborta a conexão para não interromper mídias com átomo moov grande (2MB-4MB)
+        // aguarda sem interromper mídias com átomo moov grande (2MB-4MB)
         if (!this.hasPlayedOnce || this._isStartingPlayback || this._isSwitchingChannel || this.video.currentTime < 1) {
           if (this.video.readyState >= 2) {
             this.attemptAutoPlay();
@@ -100,7 +100,7 @@ class VideoPlayer {
         } catch(e) {}
 
         // Se o buffer à frente secou (< 0.5s) no meio do filme, auto-recupera a conexão
-        if (forwardBuffer < 0.5 && this.isMp4Stream && consecutiveStalls < 5) {
+        if (forwardBuffer < 0.5 && this.isMp4Stream && consecutiveStalls < 6) {
           consecutiveStalls++;
           console.warn(`[VideoPlayer] Conexão remota estagnada (${consecutiveStalls}x). Auto-recuperando stream contínuo sem travar...`);
           this.recoverStalledPlayback();
@@ -109,14 +109,51 @@ class VideoPlayer {
           const p = this.video.play();
           if (p && typeof p.catch === 'function') p.catch(() => {});
         }
-      }, 7000);
-    });
+      }, 3500);
+    };
+
+    this.video.addEventListener('waiting', handleStallOrWaiting);
+    this.video.addEventListener('stalled', handleStallOrWaiting);
+
+    // Monitor ativo de progresso contínuo (detecta congelamento de vídeo mesmo sem evento waiting)
+    let lastMonitoredTime = -1;
+    let freezeTicks = 0;
+    setInterval(() => {
+      if (!this.video || this.video.paused || this.video.ended || !this.hasPlayedOnce || this._isStartingPlayback || this._isSwitchingChannel) {
+        freezeTicks = 0;
+        return;
+      }
+      const cur = this.video.currentTime;
+      if (cur > 1 && Math.abs(cur - lastMonitoredTime) < 0.2) {
+        freezeTicks++;
+        if (freezeTicks >= 3) { // 3 ticks de 1.5s = ~4.5s congelado
+          freezeTicks = 0;
+          let fBuf = 0;
+          try {
+            for (let i = 0; i < this.video.buffered.length; i++) {
+              if (this.video.buffered.start(i) <= cur && cur <= this.video.buffered.end(i)) {
+                fBuf = this.video.buffered.end(i) - cur;
+                break;
+              }
+            }
+          } catch(e) {}
+          if (fBuf < 0.5 && this.isMp4Stream) {
+            console.warn('[VideoPlayer] Freeze monitor detectou reprodução travada sem avanço de tempo. Auto-recuperando...');
+            this.recoverStalledPlayback();
+          }
+        }
+      } else {
+        freezeTicks = 0;
+        lastMonitoredTime = cur;
+      }
+    }, 1500);
 
     this.video.addEventListener('playing', () => {
       this._isSwitchingChannel = false;
       this._isStartingPlayback = false;
       this.hasPlayedOnce = true;
       consecutiveStalls = 0;
+      freezeTicks = 0;
       if (stallWatchdog) clearTimeout(stallWatchdog);
       this.emitState('playing');
       this.updateVolumeUI();
@@ -158,7 +195,12 @@ class VideoPlayer {
         if (this.retryTimer) clearTimeout(this.retryTimer);
         this.retryTimer = setTimeout(() => {
           if (!this.currentStreamUrl) return;
-          this.playStream(this.currentStreamUrl, this.isMp4Stream, false, !this.isMp4Stream);
+          // Se já estava reproduzindo no meio do filme, recupera mantendo o ponto exato
+          if (this.video && this.video.currentTime > 2) {
+            this.recoverStalledPlayback();
+          } else {
+            this.playStream(this.currentStreamUrl, this.isMp4Stream, false, !this.isMp4Stream);
+          }
         }, 500);
         return;
       }

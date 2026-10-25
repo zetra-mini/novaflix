@@ -76,12 +76,39 @@ async function pipeStream(targetUrl, req, res) {
 
   activeStreamsCount++;
 
+  const isLiveTs = targetUrl.includes('.ts') || targetUrl.includes('output=ts');
+  const CHUNK_SIZE = 4 * 1024 * 1024; // 4 MB por bloco de streaming contínuo sem travamentos
+
+  let clientRange = req.headers.range;
+  let upstreamRange = null;
+
+  if (!isLiveTs) {
+    if (clientRange) {
+      const match = clientRange.match(/bytes=(\d+)-(\d*)/);
+      if (match) {
+        const start = parseInt(match[1], 10);
+        const end = match[2] ? parseInt(match[2], 10) : null;
+        if (end !== null && (end - start + 1) <= CHUNK_SIZE) {
+          upstreamRange = `bytes=${start}-${end}`;
+        } else {
+          upstreamRange = `bytes=${start}-${start + CHUNK_SIZE - 1}`;
+        }
+      } else {
+        upstreamRange = clientRange;
+      }
+    } else {
+      upstreamRange = `bytes=0-${CHUNK_SIZE - 1}`;
+    }
+  } else if (clientRange) {
+    upstreamRange = clientRange;
+  }
+
   const requestHeaders = {
     'User-Agent': currentUserAgent || 'VLC/3.0.18 LibVLC/3.0.18',
     'Accept': '*/*'
   };
-  if (req.headers.range) {
-    requestHeaders['Range'] = req.headers.range;
+  if (upstreamRange) {
+    requestHeaders['Range'] = upstreamRange;
   }
 
   try {
