@@ -1447,6 +1447,28 @@ const AdminApp = {
     }
   },
 
+  onRemoteUrlInputChange(val) {
+    const clean = (val || '').trim().toLowerCase();
+    const typeSelect = document.getElementById('remote-url-link-type');
+    const isVideo = clean.endsWith('.mp4') || clean.endsWith('.m3u8') || clean.endsWith('.ts') ||
+                    clean.endsWith('.mkv') || clean.includes('output=') || clean.includes('/live/') ||
+                    clean.includes('/movie/') || clean.includes('/series/');
+    if (typeSelect && typeSelect.value === 'auto') {
+      this.onRemoteLinkTypeChange(isVideo ? 'video' : 'web');
+    }
+  },
+
+  onRemoteLinkTypeChange(type) {
+    const modeBox = document.getElementById('remote-url-open-mode-box');
+    if (modeBox) {
+      if (type === 'video') {
+        modeBox.classList.add('opacity-40', 'pointer-events-none');
+      } else {
+        modeBox.classList.remove('opacity-40', 'pointer-events-none');
+      }
+    }
+  },
+
   onRemoteCatalogSearch(query, type) {
     if (this._remoteSearchTimer) clearTimeout(this._remoteSearchTimer);
     const activeType = type || this._remoteActiveType || 'all';
@@ -1692,6 +1714,9 @@ const AdminApp = {
     const message = document.getElementById('remote-popup-msg')?.value.trim() || 'O administrador liberou este conteúdo exclusivo para você!';
     const buttonText = document.getElementById('remote-popup-btn-text')?.value.trim() || 'Assistir Agora';
 
+    const linkType = document.getElementById('remote-url-link-type')?.value || 'auto';
+    const openMode = document.getElementById('remote-url-open-mode')?.value || 'redirect';
+
     const submitBtn = document.getElementById('admin-remote-submit-btn');
     const origHtml = submitBtn ? submitBtn.innerHTML : '';
     if (submitBtn) {
@@ -1710,7 +1735,9 @@ const AdminApp = {
           url: url || null,
           title,
           message,
-          buttonText
+          buttonText,
+          linkType,
+          openMode
         })
       });
 

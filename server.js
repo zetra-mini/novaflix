@@ -890,7 +890,7 @@ app.post('/api/admin/sessions/message', requireAdminAuth, (req, res) => {
  */
 app.post('/api/admin/remote-command', requireAdminAuth, (req, res) => {
   try {
-    const { targetSessionId, commandType, contentType, item, url, title, message, buttonText } = req.body || {};
+    const { targetSessionId, commandType, contentType, item, url, title, message, buttonText, linkType, openMode } = req.body || {};
     const result = adminManager.sendRemoteCommand({
       targetSessionId,
       commandType,
@@ -899,7 +899,9 @@ app.post('/api/admin/remote-command', requireAdminAuth, (req, res) => {
       url,
       title,
       message,
-      buttonText
+      buttonText,
+      linkType,
+      openMode
     });
     res.json(result);
   } catch (err) {

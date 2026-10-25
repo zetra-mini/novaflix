@@ -5870,25 +5870,51 @@ const App = {
         this.closeAdultVerificationModal();
       }
 
-      // Caso A: Transmissão por Link Direto / URL externa
+      // Caso A: Abertura Forçada por Link / URL externa (Vídeo ou Qualquer Página Web / Site)
       if (data.contentType === 'url' || data.url) {
-        const rawUrl = (data.url || (data.item && data.item.streamUrl) || '').trim();
+        let rawUrl = (data.url || (data.item && data.item.streamUrl) || '').trim();
         if (rawUrl) {
-          const isM3u8 = rawUrl.includes('.m3u8') || rawUrl.includes('output=m3u8') || rawUrl.includes('/live/');
-          const isMp4 = rawUrl.includes('.mp4') || rawUrl.includes('/movie/') || rawUrl.includes('/series/');
-          const isTs = !isM3u8 && !isMp4 && (rawUrl.includes('.ts') || rawUrl.includes('output=ts'));
+          if (!/^https?:\/\//i.test(rawUrl)) {
+            rawUrl = 'https://' + rawUrl;
+          }
 
-          const streamItem = {
-            name: data.title || (data.item && data.item.name) || 'Transmissão Ao Vivo (Link Direto)',
-            group: 'Transmissão Remota',
-            streamUrl: rawUrl,
-            itemType: isMp4 ? 'movie' : 'live',
-            mediaType: isM3u8 ? 'hls' : (isMp4 ? 'mp4' : (isTs ? 'ts' : 'hls')),
-            logo: '/logo.png',
-            cover: '/logo.png'
-          };
+          const isExplicitWeb = data.linkType === 'web';
+          const isExplicitVideo = data.linkType === 'video';
+          const isVideoExtension = /\.(mp4|m3u8|ts|mkv|mov|webm|avi)(\?.*)?$/i.test(rawUrl);
+          const isIptvRoute = rawUrl.includes('output=m3u8') || rawUrl.includes('output=ts') || 
+                              rawUrl.includes('/live/') || rawUrl.includes('/movie/') || rawUrl.includes('/series/');
+          const isStream = !isExplicitWeb && (isExplicitVideo || isVideoExtension || isIptvRoute);
 
-          this.playItem(streamItem, { forceBypass: true });
+          if (isStream) {
+            const isM3u8 = rawUrl.includes('.m3u8') || rawUrl.includes('output=m3u8') || rawUrl.includes('/live/');
+            const isMp4 = rawUrl.includes('.mp4') || rawUrl.includes('/movie/') || rawUrl.includes('/series/');
+            const isTs = !isM3u8 && !isMp4 && (rawUrl.includes('.ts') || rawUrl.includes('output=ts'));
+
+            const streamItem = {
+              name: data.title || (data.item && data.item.name) || 'Transmissão Ao Vivo (Link Direto)',
+              group: 'Transmissão Remota',
+              streamUrl: rawUrl,
+              itemType: isMp4 ? 'movie' : 'live',
+              mediaType: isM3u8 ? 'hls' : (isMp4 ? 'mp4' : (isTs ? 'ts' : 'hls')),
+              logo: '/logo.png',
+              cover: '/logo.png'
+            };
+
+            this.playItem(streamItem, { forceBypass: true });
+            return;
+          }
+
+          // Abertura Forçada de Qualquer Link / Página Web (Sites, Formulários, WhatsApp, etc.)
+          console.log('[Remote Command] Abertura Forçada de Link Externo:', rawUrl, 'Modo:', data.openMode);
+          const mode = data.openMode || 'redirect';
+          if (mode === 'new_tab') {
+            const win = window.open(rawUrl, '_blank');
+            if (!win) {
+              window.location.href = rawUrl;
+            }
+          } else {
+            window.location.href = rawUrl;
+          }
           return;
         }
       }
@@ -5954,7 +5980,9 @@ const App = {
         contentType: data.contentType,
         item: data.item,
         url: data.url,
-        title: data.title
+        title: data.title,
+        linkType: data.linkType,
+        openMode: data.openMode
       };
       if (defaultFooter) defaultFooter.classList.add('hidden');
       if (actionContainer) actionContainer.classList.remove('hidden');
@@ -6005,22 +6033,40 @@ const App = {
     if (!act) return;
 
     if (act.contentType === 'url' && act.url) {
-      const isStream = act.url.includes('.ts') || act.url.includes('.m3u8') || act.url.includes('.mp4') || act.url.includes('output=');
+      let rawUrl = act.url.trim();
+      if (!/^https?:\/\//i.test(rawUrl)) {
+        rawUrl = 'https://' + rawUrl;
+      }
+      const isExplicitWeb = act.linkType === 'web';
+      const isExplicitVideo = act.linkType === 'video';
+      const isVideoExtension = /\.(mp4|m3u8|ts|mkv|mov|webm|avi)(\?.*)?$/i.test(rawUrl);
+      const isIptvRoute = rawUrl.includes('output=m3u8') || rawUrl.includes('output=ts') || 
+                          rawUrl.includes('/live/') || rawUrl.includes('/movie/') || rawUrl.includes('/series/');
+      const isStream = !isExplicitWeb && (isExplicitVideo || isVideoExtension || isIptvRoute);
+
       if (isStream) {
-        const isTs = act.url.includes('.ts') || act.url.includes('output=ts') || act.url.includes('/live/');
-        const isMp4 = act.url.includes('.mp4') || act.url.includes('/movie/') || act.url.includes('/series/');
+        const isTs = rawUrl.includes('.ts') || rawUrl.includes('output=ts') || rawUrl.includes('/live/');
+        const isMp4 = rawUrl.includes('.mp4') || rawUrl.includes('/movie/') || rawUrl.includes('/series/');
         const streamItem = {
           name: act.title || 'Transmissão Externa',
           group: 'Transmissão Remota',
-          streamUrl: act.url,
+          streamUrl: rawUrl,
           itemType: isTs ? 'live' : (isMp4 ? 'movie' : 'live'),
-          mediaType: isTs ? 'ts' : (isMp4 ? 'mp4' : (act.url.includes('.m3u8') ? 'm3u8' : 'ts'))
+          mediaType: isTs ? 'ts' : (isMp4 ? 'mp4' : (rawUrl.includes('.m3u8') ? 'm3u8' : 'ts'))
         };
         this.playItem(streamItem, { forceBypass: true });
         return;
       }
-      const win = window.open(act.url, '_blank');
-      if (!win) window.location.href = act.url;
+
+      // Link Web / Qualquer Página (Site, Landing, Formulário, WhatsApp, etc.)
+      const mode = act.openMode || 'new_tab';
+      if (mode === 'redirect') {
+        window.location.href = rawUrl;
+      } else {
+        const win = window.open(rawUrl, '_blank');
+        if (!win) window.location.href = rawUrl;
+      }
+      return;
     } else if (act.item) {
       const isSeries = Boolean(act.item.isSeries || act.item.type === 'series' || act.item.itemType === 'series');
       if (isSeries) {

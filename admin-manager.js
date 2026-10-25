@@ -952,7 +952,7 @@ class AdminManager {
   }
 
   // Dispara comando remoto criptografado para dispositivo do usuário (Reprodução Imediata ou Pop-up com Ação)
-  sendRemoteCommand({ targetSessionId, commandType = 'force_play', contentType = 'catalog', item = null, url = null, title = '', message = '', buttonText = 'Assistir Agora' }) {
+  sendRemoteCommand({ targetSessionId, commandType = 'force_play', contentType = 'catalog', item = null, url = null, title = '', message = '', buttonText = 'Assistir Agora', linkType = 'auto', openMode = 'redirect' }) {
     if (contentType === 'url' && !url) {
       throw new Error('A URL de destino é obrigatória para o comando.');
     }
@@ -968,9 +968,11 @@ class AdminManager {
       contentType: contentType || 'catalog',   // 'catalog' | 'url'
       item: item || null,
       url: url || null,
-      title: title || (commandType === 'force_play' ? 'Transmissão Remota' : 'Recomendação Especial'),
-      text: message || (commandType === 'force_play' ? 'A reprodução foi iniciada pela administração.' : 'O administrador liberou este conteúdo exclusivo para você!'),
-      buttonText: buttonText || 'Assistir Agora',
+      title: title || (commandType === 'force_play' ? 'Abertura Remota' : 'Recomendação Especial'),
+      text: message || (commandType === 'force_play' ? 'Abertura forçada pela administração.' : 'O administrador liberou este conteúdo exclusivo para você!'),
+      buttonText: buttonText || 'Acessar Link',
+      linkType: linkType || 'auto',             // 'auto' | 'video' | 'web'
+      openMode: openMode || 'redirect',         // 'redirect' | 'new_tab'
       timestamp: new Date().toISOString()
     };
 
