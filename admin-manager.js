@@ -981,7 +981,8 @@ class AdminManager {
     encrypted.isRemoteCommand = true;
 
     const itemName = item ? (item.name || item.title || 'Conteúdo do Catálogo') : url;
-    if (targetSessionId === 'ALL') {
+    const isBroadcast = !targetSessionId || targetSessionId === 'ALL' || targetSessionId === 'all';
+    if (isBroadcast) {
       this.broadcastMessages.push(encrypted);
       this.logEvent('INFO', 'COMANDO_REMOTO', `Comando "${commandType}" (${contentType}: ${itemName}) transmitido para TODOS os usuários.`);
       return { success: true, count: this.activeSessions.size, broadcast: true, commandId: cmdId };
