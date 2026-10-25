@@ -32,4 +32,8 @@ router.post('/playlists/sync', requireAdminAuth, (req, res) => adminController.s
 // Telemetria & QoE
 router.get('/telemetry/stats', requireAdminAuth, (req, res) => adminController.getTelemetryStats(req, res));
 
+// Atualização de Código do Repositório GitHub
+router.get('/system/git-status', requireAdminAuth, (req, res) => adminController.getGitStatus(req, res));
+router.post('/system/git-update', requireAdminAuth, (req, res) => adminController.gitUpdate(req, res));
+
 module.exports = { router, requireAdminAuth };

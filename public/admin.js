@@ -314,6 +314,9 @@ const AdminApp = {
           `).join('');
         }
       }
+
+      // Atualiza status do Git na dashboard
+      this.loadGitStatus();
     } catch (e) {
       console.warn('Erro ao carregar dashboard:', e);
     }
@@ -858,8 +861,88 @@ const AdminApp = {
       if (rlMax) rlMax.value = data.rateLimit?.maxRequests || 5;
       if (rlWin) rlWin.value = data.rateLimit?.windowMinutes || 10;
       if (corsDom) corsDom.value = data.corsAllowedDomains || '*';
+
+      this.loadGitStatus();
     } catch (e) {
       this.showToast('Erro ao carregar configurações: ' + e.message, 'error');
+    }
+  },
+
+  // =========================================================================
+  // ATUALIZAÇÃO DO REPOSITÓRIO GITHUB VIA PAINEL ADM
+  // =========================================================================
+  async loadGitStatus() {
+    try {
+      const data = await this.apiRequest('/api/admin/system/git-status');
+      if (data && data.success) {
+        const commitShort = data.commit ? data.commit.substring(0, 8) : '--';
+        const fullDesc = `${commitShort} - ${data.message || ''}`;
+
+        const dashVer = document.getElementById('dash-git-version');
+        const dashCom = document.getElementById('dash-git-commit');
+        const setCom = document.getElementById('settings-git-commit');
+
+        if (dashVer && data.version) dashVer.textContent = `v${data.version}`;
+        if (dashCom) dashCom.textContent = commitShort;
+        if (setCom) setCom.textContent = fullDesc;
+      }
+    } catch (e) {
+      console.warn('[Admin] Não foi possível consultar status do Git:', e.message);
+    }
+  },
+
+  async triggerGitUpdate() {
+    if (!confirm('Deseja baixar e aplicar as atualizações mais recentes do repositório oficial no GitHub agora?')) {
+      return;
+    }
+
+    const btnDash = document.getElementById('btn-git-update-dash');
+    const btnSet = document.getElementById('btn-git-update-settings');
+    const logBox = document.getElementById('git-update-log-box');
+
+    const setButtonsLoading = (isLoading) => {
+      [btnDash, btnSet].forEach(btn => {
+        if (!btn) return;
+        btn.disabled = isLoading;
+        if (isLoading) {
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Atualizando do GitHub...</span>';
+          btn.classList.add('opacity-75');
+        } else {
+          btn.innerHTML = '<i class="fa-brands fa-github text-sm"></i> <span>Atualizar Código do GitHub</span>';
+          btn.classList.remove('opacity-75');
+        }
+      });
+    };
+
+    setButtonsLoading(true);
+    this.showToast('Conectando ao GitHub para baixar atualizações...', 'info');
+
+    try {
+      const data = await this.apiRequest('/api/admin/system/git-update', {
+        method: 'POST'
+      });
+
+      if (!data.success) {
+        throw new Error(data.error || 'Falha ao atualizar repositório');
+      }
+
+      this.showToast('🎉 Código atualizado com sucesso a partir do GitHub!', 'success');
+
+      if (logBox) {
+        logBox.classList.remove('hidden');
+        logBox.textContent = `[Git Output]\n${data.output || 'Repositório sincronizado com sucesso.'}\nÚltimo Commit: ${data.latestCommit || ''}`;
+      }
+
+      await this.loadGitStatus();
+    } catch (err) {
+      console.error('[Admin] Erro na atualização via Git:', err);
+      this.showToast('Erro na atualização: ' + err.message, 'error');
+      if (logBox) {
+        logBox.classList.remove('hidden');
+        logBox.textContent = `[Erro na Atualização]\n${err.message}`;
+      }
+    } finally {
+      setButtonsLoading(false);
     }
   },
 

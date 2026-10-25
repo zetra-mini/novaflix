@@ -221,6 +221,74 @@ class AdminController {
       res.status(500).json({ success: false, error: err.message });
     }
   }
+
+  /**
+   * Consulta status atual do Git (Commit atual, tag, remote)
+   */
+  async getGitStatus(req, res) {
+    const rootDir = path.join(__dirname, '..');
+    const cmd = 'git log -1 --format="%h|%s|%ci"';
+    exec(cmd, { cwd: rootDir, timeout: 15000 }, (err, stdout) => {
+      let commit = 'Desconhecido';
+      let message = '';
+      let date = '';
+      if (!err && stdout) {
+        const parts = stdout.trim().split('|');
+        commit = parts[0] || '';
+        message = parts[1] || '';
+        date = parts[2] || '';
+      }
+      res.json({
+        success: true,
+        version: '2.0.5',
+        commit,
+        message,
+        date,
+        repository: 'https://github.com/zetra-mini/novaflix.git'
+      });
+    });
+  }
+
+  /**
+   * Atualização do Código via GitHub com 1 Clique (git fetch + reset + pm2 reload)
+   */
+  async gitUpdate(req, res) {
+    const rootDir = path.join(__dirname, '..');
+    adminManager.logEvent('INFO', 'SISTEMA', 'Atualização de código disparada pelo administrador no Painel ADM...');
+
+    const isWin = process.platform === 'win32';
+    const updateCmd = 'git fetch --depth 1 origin main && git reset --hard origin/main';
+
+    exec(updateCmd, { cwd: rootDir, timeout: 60000 }, (err, stdout, stderr) => {
+      if (err) {
+        adminManager.logEvent('ERROR', 'SISTEMA', `Falha ao atualizar código via GitHub: ${err.message}`);
+        return res.status(500).json({
+          success: false,
+          error: `Falha ao puxar atualizações: ${err.message}`,
+          output: stderr || stdout || ''
+        });
+      }
+
+      exec('git log -1 --format="%h - %s (%ci)"', { cwd: rootDir, timeout: 10000 }, (err2, stdout2) => {
+        const latestCommit = stdout2 ? stdout2.trim() : 'Atualizado com sucesso';
+        adminManager.logEvent('INFO', 'SISTEMA', `Código atualizado com sucesso para: ${latestCommit}`);
+
+        // No Linux VPS, agenda reload do PM2 em segundo plano
+        if (!isWin) {
+          setTimeout(() => {
+            exec('pm2 reload novaflix 2>/dev/null || pm2 restart novaflix 2>/dev/null || true', { cwd: rootDir });
+          }, 1500);
+        }
+
+        res.json({
+          success: true,
+          message: 'Código do repositório GitHub atualizado com sucesso!',
+          latestCommit,
+          output: stdout || ''
+        });
+      });
+    });
+  }
 }
 
 module.exports = new AdminController();

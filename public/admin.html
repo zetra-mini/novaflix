@@ -344,6 +344,29 @@
             </div>
           </div>
 
+          <!-- Card de Atualização do Código via GitHub -->
+          <div class="p-5 rounded-2xl bg-[#141414] border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div class="space-y-1.5 flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <i class="fa-brands fa-github text-white text-base"></i>
+                <h4 class="text-sm font-bold text-white">Atualização do Código (GitHub)</h4>
+                <span id="dash-git-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">SINCRONIZADO</span>
+              </div>
+              <p class="text-xs text-slate-400">Puxe os commits mais recentes do repositório oficial com 1 clique (git fetch + reset + reload do servidor).</p>
+              <div class="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 pt-1 font-mono">
+                <span>Versão: <strong class="text-white font-bold" id="dash-git-version">v2.0.5</strong></span>
+                <span>•</span>
+                <span>Último Commit: <span class="text-amber-400" id="dash-git-commit">--</span></span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button onclick="AdminApp.triggerGitUpdate()" id="btn-git-update-dash" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-brand-red text-white text-xs font-bold transition flex items-center gap-2 border border-slate-700 hover:border-brand-red shadow-lg cursor-pointer">
+                <i class="fa-brands fa-github text-sm"></i>
+                <span>Atualizar Código do GitHub</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Ação Rápida de Verificação -->
           <div class="p-5 rounded-2xl bg-[#141414] border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
@@ -935,6 +958,43 @@
                 <span>Salvar Configurações Técnicas</span>
               </button>
             </div>
+          </div>
+
+          <!-- Atualização Automática de Código do Sistema (GitHub) -->
+          <div class="p-6 rounded-2xl bg-[#141414] border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                  <i class="fa-brands fa-github text-white"></i>
+                  <span>Repositório GitHub & Atualizações do Sistema</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-1">Sincroniza o servidor diretamente com a branch <code class="text-amber-400 font-mono">main</code> do repositório oficial no GitHub.</p>
+              </div>
+              <a href="https://github.com/zetra-mini/novaflix" target="_blank" class="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-slate-800 transition">
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                <span>Ver no GitHub</span>
+              </a>
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#121212] border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div class="space-y-1 text-xs">
+                <div class="flex items-center gap-2 font-mono text-[11px]">
+                  <span class="text-slate-400">Repositório:</span>
+                  <span class="text-sky-400">github.com/zetra-mini/novaflix</span>
+                </div>
+                <div class="flex items-center gap-2 font-mono text-[11px]">
+                  <span class="text-slate-400">Commit Ativo:</span>
+                  <span class="text-amber-400 font-bold" id="settings-git-commit">--</span>
+                </div>
+              </div>
+
+              <button onclick="AdminApp.triggerGitUpdate()" id="btn-git-update-settings" class="px-5 py-2.5 rounded-xl bg-brand-red hover:bg-brand-hover text-white text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-brand-red/20 cursor-pointer">
+                <i class="fa-brands fa-github"></i>
+                <span>Atualizar Agora do GitHub</span>
+              </button>
+            </div>
+
+            <div id="git-update-log-box" class="hidden p-3.5 rounded-xl bg-black/80 border border-slate-800 font-mono text-[11px] text-emerald-400 whitespace-pre-wrap select-text"></div>
           </div>
         </section>
 
