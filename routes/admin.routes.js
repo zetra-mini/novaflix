@@ -35,5 +35,6 @@ router.get('/telemetry/stats', requireAdminAuth, (req, res) => adminController.g
 // Atualização de Código do Repositório GitHub
 router.get('/system/git-status', requireAdminAuth, (req, res) => adminController.getGitStatus(req, res));
 router.post('/system/git-update', requireAdminAuth, (req, res) => adminController.gitUpdate(req, res));
+router.post('/system/reboot-vps', requireAdminAuth, (req, res) => adminController.rebootVps(req, res));
 
 module.exports = { router, requireAdminAuth };

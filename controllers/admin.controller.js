@@ -249,45 +249,102 @@ class AdminController {
     });
   }
 
-  /**
-   * Atualização do Código via GitHub com 1 Clique (git fetch + reset + pm2 reload)
+    /**
+   * Atualização do Código via GitHub com 1 Clique e Reinicialização Automática
    */
   async gitUpdate(req, res) {
     const rootDir = path.join(__dirname, '..');
-    adminManager.logEvent('INFO', 'SISTEMA', 'Atualização de código disparada pelo administrador no Painel ADM...');
+    const { rebootMachine = true } = req.body || {};
+    adminManager.logEvent('INFO', 'SISTEMA', `Atualização de código disparada pelo administrador no Painel ADM (Reiniciar máquina: ${rebootMachine ? 'SIM' : 'NÃO'})...`);
 
     const isWin = process.platform === 'win32';
-    const updateCmd = 'git fetch --depth 1 origin main && git reset --hard origin/main';
 
-    exec(updateCmd, { cwd: rootDir, timeout: 60000 }, (err, stdout, stderr) => {
+    if (isWin) {
+      const updateCmd = 'git fetch origin main && git reset --hard origin/main';
+      exec(updateCmd, { cwd: rootDir, timeout: 60000 }, (err, stdout, stderr) => {
+        if (err) {
+          adminManager.logEvent('ERROR', 'SISTEMA', `Falha ao atualizar código via GitHub: ${err.message}`);
+          return res.status(500).json({
+            success: false,
+            error: `Falha ao puxar atualizações: ${err.message}`,
+            output: stderr || stdout || ''
+          });
+        }
+
+        exec('git log -1 --format="%h - %s (%ci)"', { cwd: rootDir, timeout: 10000 }, (err2, stdout2) => {
+          const latestCommit = stdout2 ? stdout2.trim() : 'Atualizado com sucesso';
+          adminManager.logEvent('INFO', 'SISTEMA', `Código atualizado no Windows para: ${latestCommit}`);
+
+          res.json({
+            success: true,
+            message: 'Código do repositório GitHub atualizado com sucesso! (Ambiente Windows Local)',
+            latestCommit,
+            rebooting: false,
+            output: stdout || ''
+          });
+        });
+      });
+      return;
+    }
+
+    const scriptPath = path.join(rootDir, 'scripts', 'update-vps.sh');
+    const rebootFlag = rebootMachine ? '--reboot' : '';
+
+    const syncCmd = 'git fetch --all --depth=1 && git reset --hard origin/main';
+    exec(syncCmd, { cwd: rootDir, timeout: 60000 }, (err, stdout, stderr) => {
       if (err) {
-        adminManager.logEvent('ERROR', 'SISTEMA', `Falha ao atualizar código via GitHub: ${err.message}`);
+        adminManager.logEvent('ERROR', 'SISTEMA', `Falha ao sincronizar com GitHub: ${err.message}`);
         return res.status(500).json({
           success: false,
-          error: `Falha ao puxar atualizações: ${err.message}`,
+          error: `Falha ao puxar atualizações do GitHub: ${err.message}`,
           output: stderr || stdout || ''
         });
       }
 
       exec('git log -1 --format="%h - %s (%ci)"', { cwd: rootDir, timeout: 10000 }, (err2, stdout2) => {
         const latestCommit = stdout2 ? stdout2.trim() : 'Atualizado com sucesso';
-        adminManager.logEvent('INFO', 'SISTEMA', `Código atualizado com sucesso para: ${latestCommit}`);
-
-        // No Linux VPS, agenda reload do PM2 em segundo plano
-        if (!isWin) {
-          setTimeout(() => {
-            exec('pm2 reload novaflix 2>/dev/null || pm2 restart novaflix 2>/dev/null || true', { cwd: rootDir });
-          }, 1500);
-        }
+        adminManager.logEvent('INFO', 'SISTEMA', `Código atualizado para ${latestCommit}. Disparando reinicialização da VPS...`);
 
         res.json({
           success: true,
-          message: 'Código do repositório GitHub atualizado com sucesso!',
+          message: rebootMachine
+            ? '🎉 Código atualizado com sucesso! A máquina VPS está sendo reiniciada agora para que o sistema fique 100% online automaticamente.'
+            : '🎉 Código atualizado com sucesso! A aplicação está sendo reiniciada automaticamente.',
           latestCommit,
+          rebooting: Boolean(rebootMachine),
           output: stdout || ''
         });
+
+        setTimeout(() => {
+          const runCmd = `nohup bash "${scriptPath}" ${rebootFlag} > /tmp/novaflix-update.log 2>&1 &`;
+          exec(runCmd, { cwd: rootDir });
+        }, 1500);
       });
     });
+  }
+
+  /**
+   * Reinício Direto da Máquina VPS (Reboot sob demanda do ADM)
+   */
+  async rebootVps(req, res) {
+    adminManager.logEvent('WARN', 'SISTEMA', 'Comando de reinicialização da máquina VPS disparado pelo administrador.');
+    const isWin = process.platform === 'win32';
+
+    if (isWin) {
+      return res.json({
+        success: true,
+        message: 'Comando de reinicialização simulado no Windows local.'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Comando de reinicialização recebido! A máquina VPS está reiniciando e voltará online em instantes.'
+    });
+
+    setTimeout(() => {
+      exec('sudo reboot 2>/dev/null || reboot 2>/dev/null || shutdown -r now 2>/dev/null || true');
+    }, 1500);
   }
 }
 

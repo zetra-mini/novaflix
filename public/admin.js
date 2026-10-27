@@ -892,7 +892,14 @@ const AdminApp = {
   },
 
   async triggerGitUpdate() {
-    if (!confirm('Deseja baixar e aplicar as atualizações mais recentes do repositório oficial no GitHub agora?')) {
+    const confirmMsg = 'Deseja baixar e aplicar as atualizações mais recentes do GitHub e REINICIAR a máquina VPS para que o sistema fique online automaticamente?\n\n' +
+      '• O código será sincronizado com a branch main oficial.\n' +
+      '• Caches antigos serão limpos (evitando tela de carregamento).\n' +
+      '• As dependências serão verificadas (npm install).\n' +
+      '• A máquina VPS será reiniciada para inicializar portas, Nginx e PM2 limpos.\n\n' +
+      'Clique em OK para Atualizar e Reiniciar a Máquina.';
+
+    if (!confirm(confirmMsg)) {
       return;
     }
 
@@ -900,40 +907,43 @@ const AdminApp = {
     const btnSet = document.getElementById('btn-git-update-settings');
     const logBox = document.getElementById('git-update-log-box');
 
-    const setButtonsLoading = (isLoading) => {
+    const setButtonsLoading = (isLoading, label = 'Atualizando do GitHub...') => {
       [btnDash, btnSet].forEach(btn => {
         if (!btn) return;
         btn.disabled = isLoading;
         if (isLoading) {
-          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Atualizando do GitHub...</span>';
+          btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>${label}</span>`;
           btn.classList.add('opacity-75');
         } else {
-          btn.innerHTML = '<i class="fa-brands fa-github text-sm"></i> <span>Atualizar Código do GitHub</span>';
+          btn.innerHTML = '<i class="fa-brands fa-github text-sm"></i> <span>Atualizar Código e Reiniciar Máquina</span>';
           btn.classList.remove('opacity-75');
         }
       });
     };
 
-    setButtonsLoading(true);
-    this.showToast('Conectando ao GitHub para baixar atualizações...', 'info');
+    setButtonsLoading(true, 'Baixando do GitHub...');
+    this.showToast('Conectando ao GitHub para baixar atualizações e preparar reinício...', 'info', 6000);
 
     try {
       const data = await this.apiRequest('/api/admin/system/git-update', {
-        method: 'POST'
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rebootMachine: true })
       });
 
       if (!data.success) {
         throw new Error(data.error || 'Falha ao atualizar repositório');
       }
 
-      this.showToast('🎉 Código atualizado com sucesso a partir do GitHub!', 'success');
+      this.showToast('🎉 Código atualizado! A máquina está reiniciando para ficar 100% online.', 'success', 8000);
 
       if (logBox) {
         logBox.classList.remove('hidden');
-        logBox.textContent = `[Git Output]\n${data.output || 'Repositório sincronizado com sucesso.'}\nÚltimo Commit: ${data.latestCommit || ''}`;
+        logBox.textContent = `[Atualização Concluída]\n${data.message || 'Código atualizado com sucesso.'}\nÚltimo Commit: ${data.latestCommit || ''}\n\nAguardando reinicialização da VPS e reconexão automática do sistema...`;
       }
 
       await this.loadGitStatus();
+      this.startRebootReconnectionWatcher();
     } catch (err) {
       console.error('[Admin] Erro na atualização via Git:', err);
       this.showToast('Erro na atualização: ' + err.message, 'error');
@@ -941,9 +951,55 @@ const AdminApp = {
         logBox.classList.remove('hidden');
         logBox.textContent = `[Erro na Atualização]\n${err.message}`;
       }
-    } finally {
       setButtonsLoading(false);
     }
+  },
+
+  async triggerVpsReboot() {
+    if (!confirm('Atenção: Deseja realmente REINICIAR a máquina VPS agora?\n\nTodos os serviços serão reinicializados e o sistema voltará online em cerca de 25-35 segundos.')) {
+      return;
+    }
+
+    this.showToast('Enviando comando de reinicialização para a VPS...', 'warning');
+    try {
+      await this.apiRequest('/api/admin/system/reboot-vps', {
+        method: 'POST'
+      });
+      this.showToast('🔄 Comando enviado! A máquina VPS está reiniciando.', 'info', 10000);
+      this.startRebootReconnectionWatcher();
+    } catch (e) {
+      this.showToast('Aviso: ' + e.message, 'info');
+      this.startRebootReconnectionWatcher();
+    }
+  },
+
+  startRebootReconnectionWatcher() {
+    let secondsPassed = 0;
+    const maxSeconds = 90;
+    this.showToast('🔄 Aguardando máquina reiniciar e serviços ficarem online...', 'info', 15000);
+
+    const interval = setInterval(async () => {
+      secondsPassed += 3;
+      try {
+        const res = await fetch('/api/netflix/status', { cache: 'no-store' });
+        if (res.ok) {
+          const d = await res.json();
+          if (d.isReady) {
+            clearInterval(interval);
+            this.showToast('✅ Sistema online e pronto! Recarregando painel...', 'success', 4000);
+            setTimeout(() => {
+              window.location.reload();
+            }, 1500);
+            return;
+          }
+        }
+      } catch (err) {}
+
+      if (secondsPassed >= maxSeconds) {
+        clearInterval(interval);
+        this.showToast('A reinicialização está demorando um pouco mais. Tente atualizar a página manualmente.', 'warning', 8000);
+      }
+    }, 3000);
   },
 
   async saveTechnicalSettings() {
