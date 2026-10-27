@@ -841,6 +841,10 @@ const App = {
         if (durTxt) durTxt.textContent = this.formatTime(videoEl.duration);
         if (seekBar) seekBar.value = (videoEl.currentTime / videoEl.duration) * 100;
 
+        // Alerta de Próximo Episódio faltando 15 segundos estilo Netflix
+        const timeLeft = videoEl.duration - videoEl.currentTime;
+        this.checkNextEpisodeToast(timeLeft, videoEl.duration);
+
         // Salva progresso no Continuar Assistindo (a cada ~4 segundos)
         if (this.state.activeItem) {
           const nowSec = Math.floor(videoEl.currentTime);
@@ -882,7 +886,7 @@ const App = {
       this.updateVolumeUI();
     });
 
-    // Retomada automática da posição onde parou (se houver)
+    // Retomada automática da posição onde parou (se houver) com continuidade garantida de reprodução
     const handleResume = () => {
       if (this._pendingResumeTime && this._pendingResumeTime > 5) {
         const resumeSec = this._pendingResumeTime;
@@ -890,6 +894,14 @@ const App = {
         try {
           videoEl.currentTime = resumeSec;
           this.showToast(`Continuando exatamente de ${this.formatTime(resumeSec)}`, 'info');
+          const onSeeked = () => {
+            videoEl.removeEventListener('seeked', onSeeked);
+            if (this.player && !this.player._userRequestedPause && videoEl.paused) {
+              const p = videoEl.play();
+              if (p && typeof p.catch === 'function') p.catch(() => {});
+            }
+          };
+          videoEl.addEventListener('seeked', onSeeked, { once: true });
         } catch(e) {}
       }
     };
@@ -897,7 +909,7 @@ const App = {
     videoEl.addEventListener('canplay', handleResume);
 
     videoEl.addEventListener('pause', () => {
-      if (this.player && (this.player._isStartingPlayback || this.player._isSwitchingChannel || !this.player.hasPlayedOnce || videoEl.seeking)) {
+      if (this.player && (this.player._isStartingPlayback || this.player._isSwitchingChannel || !this.player.hasPlayedOnce || videoEl.seeking || !this.player._userRequestedPause)) {
         return;
       }
       this.updatePlayPauseIcon(true);
@@ -963,6 +975,7 @@ const App = {
     // Se o vídeo estiver pausado, NUNCA esconde os controles (facilita o uso)
     if (isPaused) return;
 
+    // Controles somem automaticamente após 10 segundos de inatividade durante reprodução
     this._controlsInactivityTimer = setTimeout(() => {
       const isPausedNow = this.player && this.player.video ? this.player.video.paused : false;
       const isDrawerOpen = !document.getElementById('player-episodes-drawer')?.classList.contains('hidden') ||
@@ -974,7 +987,7 @@ const App = {
       if (!isPausedNow && !isDrawerOpen && !this._isInteractingWithControls) {
         this.hidePlayerControls();
       }
-    }, 4500);
+    }, 10000);
   },
 
   showPlayerControls() {
@@ -1062,6 +1075,7 @@ const App = {
     if (this.player.video.muted) {
       this.unmuteVideo();
     }
+    this.player._userRequestedPause = false;
     this.updateCenterIndicator(false);
     const p = this.player.video.play();
     if (p && typeof p.catch === 'function') {
@@ -2387,6 +2401,23 @@ const App = {
 
     this.state.isPlayerLocked = false;
     this.updateCenterIndicator(false);
+    this.hideNextEpisodeToast();
+    this._dismissedNextEpFor = null;
+    if (this.player) this.player._userRequestedPause = false;
+
+    // Se for série, pré-carrega episódios para garantir prontidão do próximo episódio
+    const targetSeriesId = (typeof series !== 'undefined' && series && series.id) ? series.id : (typeof item !== 'undefined' && item && item.itemType === 'series' && item.id ? item.id : null);
+    if (targetSeriesId && (!this.state.currentSeriesData || this.state.currentSeriesData.id !== targetSeriesId)) {
+      fetch(this.getServerUrl(`/api/netflix/series/${targetSeriesId}`))
+        .then(r => r.json())
+        .then(d => {
+          if (this.state.activeSeries && this.state.activeSeries.id === targetSeriesId) {
+            this.state.currentSeriesData = d;
+          }
+        })
+        .catch(() => {});
+    }
+
     const lockOverlay = document.getElementById('player-lock-overlay');
     if (lockOverlay) lockOverlay.classList.add('hidden');
     const lockBadge = document.getElementById('player-lock-badge');
@@ -2477,6 +2508,8 @@ const App = {
     if (errorEl) errorEl.classList.add('hidden');
     this.updatePlayPauseIcon(false);
     this.updateCenterIndicator(false);
+    this.hideNextEpisodeToast();
+    if (this.player) this.player._userRequestedPause = false;
 
     // Carrega a URL com aceleração por hardware nos clientes nativos (MP4 para VOD)
     const mediaType = item.mediaType || 'mp4';
@@ -2495,6 +2528,10 @@ const App = {
   },
 
   closePlayer(fromHistory = false) {
+    this.hideNextEpisodeToast();
+    this._dismissedNextEpFor = null;
+    if (this.player) this.player._userRequestedPause = true;
+
     // 1. Salva a posição exata onde o usuário parou para o Continuar Assistindo
     if (this.player && this.player.video && this.state.activeItem && this.state.activeItem.itemType !== 'live') {
       const cur = this.player.video.currentTime || 0;
@@ -2531,6 +2568,9 @@ const App = {
     }
 
     this.cancelPostPlay();
+    this.hideNextEpisodeToast();
+    this._dismissedNextEpFor = null;
+    if (this.player) this.player._userRequestedPause = true;
 
     this.state.isPlayerLocked = false;
     this.updateCenterIndicator(false);
@@ -2712,7 +2752,86 @@ const App = {
     return null;
   },
 
+  checkNextEpisodeToast(timeLeft, duration) {
+    const toast = document.getElementById('player-next-episode-toast');
+    if (!toast) return;
+
+    // Apenas se for episódio de série com duração mínima de 30s
+    const isSeries = this.state.activeItem && this.state.activeItem.itemType === 'series';
+    if (!isSeries || !this.state.activeEpisode || !duration || duration < 30) {
+      if (!toast.classList.contains('hidden')) toast.classList.add('hidden');
+      return;
+    }
+
+    const curEpId = this.state.activeEpisode.id || `${this.state.activeEpisode.season}_${this.state.activeEpisode.episode}`;
+    if (this._dismissedNextEpFor === curEpId) {
+      if (!toast.classList.contains('hidden')) toast.classList.add('hidden');
+      return;
+    }
+
+    // Se faltarem 15 segundos ou menos (e mais de 0.5s para o fim)
+    if (timeLeft <= 15.0 && timeLeft >= 0.5) {
+      const nextItem = this.getNextRecommendedItem(this.state.activeItem);
+      if (nextItem && nextItem.episodeObj) {
+        this._nextEpisodeToastItem = nextItem;
+        const countdownEl = document.getElementById('player-next-toast-countdown');
+        const titleEl = document.getElementById('player-next-toast-title');
+        const secDisplay = Math.max(1, Math.ceil(timeLeft));
+
+        if (countdownEl) countdownEl.textContent = `${secDisplay}s`;
+        if (titleEl) {
+          const epObj = nextItem.episodeObj;
+          titleEl.textContent = `T${epObj.season}:E${epObj.episode} - ${epObj.name || 'Próximo Episódio'}`;
+        }
+
+        if (toast.classList.contains('hidden')) {
+          toast.classList.remove('hidden');
+        }
+        return;
+      }
+    }
+
+    // Se o usuário retrocedeu o vídeo para mais de 15s antes do fim
+    if (timeLeft > 15.0 && !toast.classList.contains('hidden')) {
+      toast.classList.add('hidden');
+    }
+  },
+
+  dismissNextEpisodeToast() {
+    const toast = document.getElementById('player-next-episode-toast');
+    if (toast) toast.classList.add('hidden');
+    if (this.state.activeEpisode) {
+      this._dismissedNextEpFor = this.state.activeEpisode.id || `${this.state.activeEpisode.season}_${this.state.activeEpisode.episode}`;
+    }
+  },
+
+  hideNextEpisodeToast() {
+    const toast = document.getElementById('player-next-episode-toast');
+    if (toast) toast.classList.add('hidden');
+  },
+
+  async playNextEpisodeFromToast(e) {
+    if (e) {
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+    }
+    this.hideNextEpisodeToast();
+    if (this._nextEpisodeToastItem && this._nextEpisodeToastItem.episodeObj && this._nextEpisodeToastItem.seriesObj) {
+      this.playSeriesEpisode(this._nextEpisodeToastItem.episodeObj, this._nextEpisodeToastItem.seriesObj);
+    } else {
+      await this.playNextEpisode();
+    }
+  },
+
   onVideoEnded() {
+    this.hideNextEpisodeToast();
+
+    // Se for episódio de série, avança diretamente para o próximo episódio
+    if (this.state.activeItem && this.state.activeItem.itemType === 'series') {
+      this.playNextEpisode();
+      return;
+    }
+
     const nextItem = this.getNextRecommendedItem(this.state.activeItem);
     if (!nextItem) return;
 
@@ -3745,6 +3864,23 @@ const App = {
 
     this.state.isPlayerLocked = false;
     this.updateCenterIndicator(false);
+    this.hideNextEpisodeToast();
+    this._dismissedNextEpFor = null;
+    if (this.player) this.player._userRequestedPause = false;
+
+    // Se for série, pré-carrega episódios para garantir prontidão do próximo episódio
+    const targetSeriesId = (typeof series !== 'undefined' && series && series.id) ? series.id : (typeof item !== 'undefined' && item && item.itemType === 'series' && item.id ? item.id : null);
+    if (targetSeriesId && (!this.state.currentSeriesData || this.state.currentSeriesData.id !== targetSeriesId)) {
+      fetch(this.getServerUrl(`/api/netflix/series/${targetSeriesId}`))
+        .then(r => r.json())
+        .then(d => {
+          if (this.state.activeSeries && this.state.activeSeries.id === targetSeriesId) {
+            this.state.currentSeriesData = d;
+          }
+        })
+        .catch(() => {});
+    }
+
     const lockOverlay = document.getElementById('player-lock-overlay');
     if (lockOverlay) lockOverlay.classList.add('hidden');
 

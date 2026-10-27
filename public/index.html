@@ -428,6 +428,28 @@
       </div>
     </div>
 
+    <!-- FLOATING NEXT EPISODE PROMPT (Surge 15s antes de acabar o episódio estilo Netflix) -->
+    <div id="player-next-episode-toast" onclick="event.stopPropagation(); App.playNextEpisodeFromToast(event)" class="hidden absolute bottom-24 sm:bottom-28 right-4 sm:right-8 z-30 bg-black/85 hover:bg-black/95 backdrop-blur-md border border-white/25 hover:border-netflix-red rounded-2xl p-3 sm:p-4 shadow-2xl transition transform hover:scale-105 cursor-pointer max-w-[300px] sm:max-w-[340px] select-none animate-fade-in group">
+      <div class="flex items-center gap-3">
+        <div class="relative w-12 h-12 rounded-xl bg-netflix-red/20 text-netflix-red border border-netflix-red/40 flex items-center justify-center shrink-0 group-hover:bg-netflix-red group-hover:text-white transition shadow">
+          <i class="fa-solid fa-forward-step text-base"></i>
+          <span id="player-next-toast-countdown" class="absolute -bottom-1 -right-1 bg-netflix-red text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border border-black shadow">15s</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[10px] uppercase font-black tracking-wider text-netflix-red">Próximo Episódio</span>
+            <button type="button" onclick="event.stopPropagation(); App.dismissNextEpisodeToast()" class="text-slate-400 hover:text-white text-xs p-1 -mr-1" title="Dispensar aviso">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <p id="player-next-toast-title" class="text-xs sm:text-sm font-bold text-white truncate drop-shadow my-0.5">Próximo</p>
+          <div class="flex items-center gap-1 text-[11px] text-slate-300 font-semibold group-hover:text-white">
+            <span>Assistir Agora</span> <i class="fa-solid fa-arrow-right text-[9px] group-hover:translate-x-1 transition-transform"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- BOTTOM CONTROLS BAR (ESTILO NETFLIX / YOUTUBE - CONTEXT-SENSITIVE) -->
     <div class="netflix-player-controls absolute bottom-0 left-0 right-0 p-3 sm:p-4 md:p-6 bg-gradient-to-t from-black/95 via-black/70 to-transparent space-y-1.5 sm:space-y-2 md:space-y-3 z-20">
       

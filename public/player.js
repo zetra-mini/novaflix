@@ -18,6 +18,8 @@ class VideoPlayer {
     this.retryCount = 0;
     this.maxRetries = 3;
     this.retryTimer = null;
+    this._userRequestedPause = false;
+    this._startPlayClearTimer = null;
 
     this.listeners = {
       stateChange: [],
@@ -149,8 +151,6 @@ class VideoPlayer {
     }, 1500);
 
     this.video.addEventListener('playing', () => {
-      this._isSwitchingChannel = false;
-      this._isStartingPlayback = false;
       this.hasPlayedOnce = true;
       consecutiveStalls = 0;
       freezeTicks = 0;
@@ -159,11 +159,20 @@ class VideoPlayer {
       this.updateVolumeUI();
       this.setupAudioEnhancement();
       this.resumeAudioContext();
+
+      // Mantém a trava de inicialização ativa por 1.5s de reprodução contínua para evitar falsas pausas de buffering/metadados
+      if (this._startPlayClearTimer) clearTimeout(this._startPlayClearTimer);
+      this._startPlayClearTimer = setTimeout(() => {
+        if (this.video && !this.video.paused) {
+          this._isSwitchingChannel = false;
+          this._isStartingPlayback = false;
+        }
+      }, 1500);
     });
 
     const tryAutoResumeOnReady = () => {
       if (stallWatchdog) clearTimeout(stallWatchdog);
-      if (this.currentStreamUrl && (this._isStartingPlayback || this._isSwitchingChannel || !this.hasPlayedOnce) && this.video.paused) {
+      if (this.currentStreamUrl && !this._userRequestedPause && this.video.paused) {
         this.attemptAutoPlay();
       }
     };
@@ -172,7 +181,17 @@ class VideoPlayer {
     this.video.addEventListener('canplaythrough', tryAutoResumeOnReady);
 
     this.video.addEventListener('pause', () => {
-      if (!this.video.ended && !this._isSwitchingChannel && !this._isStartingPlayback && !this.video.seeking && this.hasPlayedOnce) {
+      // Se a pausa foi causada pelo navegador durante carregamento/buffering/seek inicial e o usuário NÃO pediu pausa:
+      if (!this._userRequestedPause && (this._isStartingPlayback || this._isSwitchingChannel || !this.hasPlayedOnce || this.video.seeking)) {
+        console.log('[VideoPlayer] Pausa técnica de carregamento/buffer detectada. Retomando play automaticamente...');
+        setTimeout(() => {
+          if (!this._userRequestedPause && this.video && this.video.paused) {
+            this.attemptAutoPlay();
+          }
+        }, 100);
+        return;
+      }
+      if (!this.video.ended && this.hasPlayedOnce && this._userRequestedPause) {
         this.emitState('paused');
       }
     });
@@ -274,6 +293,7 @@ class VideoPlayer {
   loadChannel(channel) {
     if (!channel || !channel.url) return;
 
+    this._userRequestedPause = false;
     this._isSwitchingChannel = true;
     this._isStartingPlayback = true;
     this.hasPlayedOnce = false;
@@ -291,18 +311,26 @@ class VideoPlayer {
 
   attemptAutoPlay() {
     if (!this.video || !this.currentStreamUrl) return;
+    if (this._userRequestedPause) return;
+
     const playPromise = this.video.play();
     if (playPromise !== undefined && typeof playPromise.catch === 'function') {
       playPromise
         .then(() => {
-          this._isSwitchingChannel = false;
-          this._isStartingPlayback = false;
           this.hasPlayedOnce = true;
           this.emitState('playing');
           this.hideUnmutePrompt();
           this.updateVolumeUI();
           this.setupAudioEnhancement();
           this.resumeAudioContext();
+
+          if (this._startPlayClearTimer) clearTimeout(this._startPlayClearTimer);
+          this._startPlayClearTimer = setTimeout(() => {
+            if (this.video && !this.video.paused) {
+              this._isSwitchingChannel = false;
+              this._isStartingPlayback = false;
+            }
+          }, 1500);
         })
         .catch(err => {
           const errName = (err && err.name) ? err.name : '';
@@ -316,19 +344,23 @@ class VideoPlayer {
             this.video.muted = true;
             this.video.play()
               .then(() => {
-                this._isSwitchingChannel = false;
-                this._isStartingPlayback = false;
                 this.hasPlayedOnce = true;
                 this.emitState('playing');
                 this.showUnmutePrompt();
                 this.updateVolumeUI();
                 this.setupAudioEnhancement();
                 this.resumeAudioContext();
+
+                if (this._startPlayClearTimer) clearTimeout(this._startPlayClearTimer);
+                this._startPlayClearTimer = setTimeout(() => {
+                  if (this.video && !this.video.paused) {
+                    this._isSwitchingChannel = false;
+                    this._isStartingPlayback = false;
+                  }
+                }, 1500);
               })
               .catch(() => {
-                if (this.video.readyState >= 3) {
-                  this._isSwitchingChannel = false;
-                  this._isStartingPlayback = false;
+                if (this._userRequestedPause) {
                   this.emitState('paused');
                 }
               });
@@ -343,6 +375,7 @@ class VideoPlayer {
    * 2. Hls.js com Buffer Adaptativo (para streams .m3u8 VOD)
    */
   playStream(streamUrl, isMp4 = true, isLiveTs = false, isHls = false) {
+    this._userRequestedPause = false;
     this._isSwitchingChannel = true;
     this._isStartingPlayback = true;
     this.currentStreamUrl = streamUrl;
@@ -371,7 +404,7 @@ class VideoPlayer {
       // Auto-seleciona áudio em português e garante disparo de play ao receber metadados
       this.video.addEventListener('loadedmetadata', () => {
         this.autoSelectPortugueseAudio();
-        if (this.video.paused && (this._isStartingPlayback || this._isSwitchingChannel || !this.hasPlayedOnce)) {
+        if (this.video.paused && !this._userRequestedPause) {
           this.attemptAutoPlay();
         }
       }, { once: true });
@@ -569,6 +602,7 @@ class VideoPlayer {
   togglePlay() {
     if (this.mpegtsPlayer) {
       if (this.video.paused) {
+        this._userRequestedPause = false;
         try {
           const p = this.mpegtsPlayer.play();
           if (p && typeof p.catch === 'function') p.catch(e => console.warn('Mpegts resume:', e));
@@ -581,6 +615,7 @@ class VideoPlayer {
         }
       } else {
         if (this._isStartingPlayback || this._isSwitchingChannel) return;
+        this._userRequestedPause = true;
         try { this.mpegtsPlayer.pause(); } catch (e) {}
         try { this.video.pause(); } catch (e) {}
       }
@@ -588,6 +623,7 @@ class VideoPlayer {
     }
 
     if (this.video.paused) {
+      this._userRequestedPause = false;
       const p = this.video.play();
       if (p && typeof p.catch === 'function') {
         p.catch(err => {
@@ -600,6 +636,7 @@ class VideoPlayer {
       if (this._isStartingPlayback || this._isSwitchingChannel) {
         return;
       }
+      this._userRequestedPause = true;
       this.video.pause();
     }
   }
@@ -836,6 +873,7 @@ class VideoPlayer {
   }
 
   destroy() {
+    this._userRequestedPause = true;
     this._isSwitchingChannel = true;
     this._isStartingPlayback = false;
     this.currentStreamUrl = null;
